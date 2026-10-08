@@ -1,4 +1,4 @@
-# ConfUSIus datasets
+# ConfUSIus Functional Ultrasound Imaging Dataset Collection
 
 Conversion and publication recipes for the curated functional ultrasound imaging
 (fUSI) datasets and templates distributed through [ConfUSIus](https://confusius.tools).
@@ -18,8 +18,7 @@ dataset collection.
 | [Huang 2025 template](recipes/huang-2025-template/) | Export an Allen-aligned vascular template | CC BY-NC-SA 4.0 |
 
 Each recipe documents its original publication, source data, supplemental inputs,
-and conversion procedure. See [IMPORTS.md](IMPORTS.md) for source repositories and
-exact imported commits.
+and conversion procedure.
 
 ## Running a recipe
 

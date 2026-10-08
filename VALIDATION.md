@@ -9,8 +9,10 @@ original recording, or existing generated dataset has been modified.
 ## Import preservation
 
 The initial commit `cf86df30bd1c676f8c492a834df9f6173e14cf12` contains all 184 tracked
-recipe files from the commits recorded in [IMPORTS.md](IMPORTS.md). File names,
-bytes, Git blob hashes, and file modes were checked against the original checkouts.
+recipe files from the commits recorded in the
+[initial import record](https://github.com/confusius-tools/confusius-datasets/blob/cf86df30bd1c676f8c492a834df9f6173e14cf12/IMPORTS.md).
+File names, bytes, Git blob hashes, and file modes were checked against the original
+checkouts.
 Generated dataset directories were excluded. Three existing README trailing-space
 lines were intentionally retained in that snapshot.
 
