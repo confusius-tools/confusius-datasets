@@ -1,100 +1,78 @@
 # ConfUSIus Functional Ultrasound Imaging Dataset Collection
 
-Conversion and publication recipes for the curated functional ultrasound imaging
-(fUSI) datasets and templates distributed through [ConfUSIus](https://confusius.tools).
-This repository contains tooling and supplemental recipe inputs, not the generated
-dataset collection.
+Recipes to download or prepare functional ultrasound imaging (fUSI) datasets and
+brain templates for [ConfUSIus](https://confusius.tools). Generated data stays out of
+Git; finalized releases are published as individual files on Amazon S3.
 
 ## Recipes
 
-| Recipe | Content | Data license |
-| --- | --- | --- |
-| [Nunez-Elizalde 2022](recipes/nunez-elizalde-2022-bids/) | Convert recordings, metadata, events, and alignment derivatives to fUSI-BIDS | CC BY 4.0 |
-| [Landemard 2026](recipes/landemard-2026-bids/) | Stage an existing fUSI-BIDS dataset; no conversion required | CC BY-NC 4.0 |
-| [Khallaf 2026](recipes/khallaf-2026-bids/) | Download the published fUSI archive from Edmond, including source acquisitions; no conversion required | CC0 1.0 |
-| [Cybis Pereira 2026](recipes/cybis-pereira-2026-bids/) | Re-export recordings and derivatives with layout and orientation changes | CC BY 4.0 |
-| [Pereira 2025](recipes/pereira-2025-bids/) | Re-export 2D recordings with layout and orientation changes | CC BY 4.0 |
-| [Pepe Mariani 2026 recordings](recipes/pepe-mariani-2026-bids/) | Re-export recordings with layout, geometry, metadata, and timing corrections | CC BY 4.0 |
-| [Pepe Mariani 2026 template](recipes/pepe-mariani-2026-template/) | Export an Allen-aligned fUSI template | CC BY 4.0 |
-| [Huang 2025 template](recipes/huang-2025-template/) | Export an Allen-aligned vascular template | CC BY-NC-SA 4.0 |
+| Recipe | Data license |
+| --- | --- |
+| [Nunez-Elizalde 2022](recipes/nunez-elizalde-2022-bids/) | CC BY 4.0 |
+| [Landemard 2026](recipes/landemard-2026-bids/) | CC BY-NC 4.0 |
+| [Khallaf 2026](recipes/khallaf-2026-bids/) | CC0 1.0 |
+| [Cybis Pereira 2026](recipes/cybis-pereira-2026-bids/) | CC BY 4.0 |
+| [Pereira 2025](recipes/pereira-2025-bids/) | CC BY 4.0 |
+| [Pepe Mariani 2026 recordings](recipes/pepe-mariani-2026-bids/) | CC BY 4.0 |
+| [Pepe Mariani 2026 template](recipes/pepe-mariani-2026-template/) | CC BY 4.0 |
+| [Huang 2025 template](recipes/huang-2025-template/) | CC BY-NC-SA 4.0 |
 
-Each recipe documents its original publication, source data, supplemental inputs,
-and conversion procedure.
+## 1. Run recipes
 
-## Running a recipe
-
-Recipes retain independent Python environments and lockfiles. Run commands from
-inside the corresponding recipe directory, using the instructions in its README:
+Install [uv](https://docs.astral.sh/uv/) and follow each recipe's README for source
+data and its conversion or download command. Each has an independent locked
+Python environment. For example:
 
 ```bash
 cd recipes/pereira-2025-bids
-uv sync --locked
-uv run --locked pereira-convert --src /path/to/source --out /path/to/output_bids
+uv sync --locked --python 3.13
+uv run --locked --python 3.13 pereira-convert \
+  --src /path/to/source --out ../../work/pereira-2025-bids
 ```
 
-Keep original recordings outside this repository. Recipe inputs already tracked in
-Git are retained for reproducibility; do not commit downloaded datasets, generated
-outputs, virtual environments, or credentials.
+Landemard needs no conversion; Khallaf downloads directly from Edmond. Templates
+use their bundled inputs. Keep original recordings and credentials out of Git.
 
-## S3 migration status
+## 2. Aggregate releases
 
-The initial import preserves recipe files byte-for-byte, including the legacy OSF
-upload code. Import verification does not establish that each converter runs with
-current ConfUSIus. AWS publication is not yet configured, and the existing OSF
-copies remain the download source for ConfUSIus.
+From the repository root, place completed outputs under
+`publish/data/<recipe-directory-name>/<version>/`. For example:
 
-All eight locked environments now install. Recording reference checks and template
-exports pass; complete dataset validation remains pending. See
-[VALIDATION.md](VALIDATION.md) for runnable checks, their scope, and the one-line
-Huang lockfile repair made after the initial import.
-
-The planned publication layout is:
-
-```text
-publish/
-├── README.md
-└── data/
-    └── <dataset-id>/
-        └── <version>/
-            ├── <dataset files>
-            ├── LICENSE
-            ├── release.json
-            └── dataset_index.json
+```bash
+mkdir -p publish/data/pereira-2025-bids/1.0.0
+cp -a work/pereira-2025-bids/. publish/data/pereira-2025-bids/1.0.0/
 ```
 
-`publish/` is gitignored and will mirror `s3://<bucket>/` exactly. Dataset identifiers
-match the recipe directory names. Releases are versioned independently of the
-ConfUSIus package and are immutable after publication.
+`work/` and `publish/` are gitignored. Preserve each dataset's layout, license,
+attribution, and source provenance. Exclude download-cache indexes and partial
+files. Validate the complete release and add `release.json` plus a
+`dataset_index.json` containing relative paths, sizes, and SHA-256 hashes.
+**Shared release finalization is not yet implemented; do not publish unvalidated
+outputs.** Published versions are immutable; corrections get a new version.
 
-Migration proceeds in this order:
+## 3. Upload to S3
 
-1. Import the seven recipes unchanged and record their provenance (complete).
-2. Validate conversion behavior in the locked environments (baseline checks pass;
-   full dataset checks pending).
-3. Standardize output paths and add shared release finalization and checksums.
-4. Publish and verify one small template using the AWS CLI.
-5. Publish the remaining datasets and migrate ConfUSIus fetchers to public HTTPS.
-6. Update documentation, the tutorial, and the AWS Registry entry.
-7. Archive the original repositories and remove legacy OSF upload tooling here.
+Install the [AWS CLI](https://aws.amazon.com/cli/) and configure an upload profile.
+Set the actual bucket URI and region, then review the dry run:
 
-Conversion and upload remain separate actions. Publish only validated releases,
-upload their indexes last, and do not use `aws s3 sync --delete`. No `latest/` data
-copy is planned. The bucket name, region, and tested releases will be documented
-before publication.
+```bash
+export BUCKET=s3://YOUR-BUCKET
+export AWS_REGION=YOUR-REGION
+aws s3 sync publish/ "$BUCKET/" --exclude '*/dataset_index.json' --dryrun
+```
 
-A short Khallaf 2026 download recipe supplements the seven imported recipes. It
-reuses a pinned version of ConfUSIus's existing Dataverse fetcher to stage the
-complete fUSI archive, including source acquisitions, without conversion.
+After validation and review, repeat without `--dryrun`. Verify uploaded file
+contents and anonymous access before uploading the checksum indexes last:
 
-## Licensing and attribution
+```bash
+aws s3 cp publish/ "$BUCKET/" --recursive \
+  --exclude '*' --include '*/dataset_index.json'
+```
 
-The root [LICENSE](LICENSE) applies to code, not to the dataset collection. Imported
-recipe licenses and copyright notices are preserved in their original locations.
-Data and supplemental inputs retain their respective source terms; see each
-recipe's `licenses/DATA_LICENSE.md` and source documentation. Do not apply a single
-code or data license to the entire collection.
+Do not use `--delete` or wrap releases in ZIP/TAR archives. Uploading to S3 is not
+atomic; advertise a release only after its files and index have been verified.
 
-Cite the original publications and datasets when using their data, and ConfUSIus
-when using its access tooling. Non-commercial and share-alike restrictions must be
-preserved where applicable. Confirm redistribution rights for supplemental inputs
-and AWS acceptance of restricted licenses before publishing releases.
+## Licensing
+
+[LICENSE](LICENSE) covers code only. Data retains its per-recipe license; cite the
+original papers and datasets, and ConfUSIus when using its tooling.
