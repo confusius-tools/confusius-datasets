@@ -21,15 +21,14 @@ redirect this recipe to our own mirror.
 From this recipe directory:
 
 ```bash
-uv sync --locked --python 3.13
-uv run --locked --python 3.13 main.py
+uv run --locked main.py
 ```
 
 The default destination is `<repository>/work/khallaf-2026-bids/`, outside Git.
 To choose a different **parent** directory:
 
 ```bash
-uv run --locked --python 3.13 main.py --data-dir /path/to/staging
+uv run --locked main.py --data-dir /path/to/staging
 # Writes /path/to/staging/khallaf-2026-bids/.
 ```
 

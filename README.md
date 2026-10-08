@@ -19,19 +19,27 @@ Git; finalized releases are published as individual files on Amazon S3.
 
 ## 1. Run recipes
 
-Install [uv](https://docs.astral.sh/uv/) and follow each recipe's README for source
-data and its conversion or download command. Each has an independent locked
-Python environment. For example:
+Install [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/). From the
+repository root:
 
 ```bash
-cd recipes/pereira-2025-bids
-uv sync --locked --python 3.13
-uv run --locked --python 3.13 pereira-convert \
-  --src /path/to/source --out ../../work/pereira-2025-bids
+just                                         # List recipes.
+just pereira-2025 /path/to/source              # Prepare recordings.
+just pereira-2025 /path/to/source --dry-run    # Forward converter options.
+just khallaf-2026                             # Download from Edmond.
+just template-huang-2025                      # Export a bundled template.
 ```
 
-Landemard needs no conversion; Khallaf downloads directly from Edmond. Templates
-use their bundled inputs. Keep original recordings and credentials out of Git.
+Each dataset has a named just recipe and stages its output in `work/<dataset-id>/`
+by default. See the linked READMEs for source inputs. Landemard only copies an
+existing BIDS tree; templates use bundled inputs.
+
+`uv run` creates and syncs each environment automatically; no separate `uv sync`
+is needed. Recipe `.python-version` files select Python 3.13. `--locked` prevents
+silent lockfile changes; update dependencies explicitly with `uv lock` when needed.
+You can also run commands directly inside a recipe directory, e.g.
+`uv run --locked pereira-convert --src /path/to/source --out /path/to/output`.
+Keep original recordings and credentials out of Git.
 
 ## 2. Aggregate releases
 
