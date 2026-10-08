@@ -18,12 +18,13 @@ lines were intentionally retained in that snapshot.
 
 ## Locked environments
 
-All seven recipes now pass `uv sync --locked --python 3.13` on this Linux host.
+All eight recipes now pass `uv sync --locked --python 3.13` on this Linux host.
 
 | Recipe | Locked ConfUSIus | Conversion check |
 | --- | --- | --- |
 | `nunez-elizalde-2022-bids` | `0.0.1a23` | Conversion CLI starts; real recording conversion remains to be checked |
 | `landemard-2026-bids` | `0.4.0` | Environment installs; no conversion is required, but the staged dataset remains to be validated |
+| `khallaf-2026-bids` | `0.8.0.dev0` at Git commit `b33094e036b28a7943432a82d724d5f74f7fa50c` | Complete-download arguments checked offline; live metadata-only fetch passes |
 | `cybis-pereira-2026-bids` | `0.5.0.dev0` at Git commit `00133de125972bdd273c0bbb66ac1b1cfc56cefc` | Synthetic NIfTI reference check passes |
 | `pereira-2025-bids` | Not required by this converter | Synthetic NIfTI reference check and inherited checks pass |
 | `pepe-mariani-2026-bids` | Not required by this converter | Synthetic NIfTI reference check passes |
@@ -59,6 +60,9 @@ done
 
 uv run --locked --python 3.13 --directory recipes/pereira-2025-bids \
   python tests/test_converter.py
+
+uv run --locked --python 3.13 --directory recipes/khallaf-2026-bids \
+  python ../../tests/check_khallaf_download.py
 ```
 
 The recording checks exercise the public `convert` entry points with small,
@@ -83,6 +87,20 @@ independent anatomical validation of the Pepe Mariani registration.
 
 The new check scripts pass Ruff formatting and lint checks in the locked Pereira
 environment. The imported converter source was not reformatted or upgraded.
+
+## Khallaf download recipe
+
+The new recipe reuses the pinned public Dataverse fetcher with `sourcedata=True`
+and no subset filters. An offline check verifies those arguments and both default
+and custom destination parents without triggering a full download. A separate live
+metadata-only fetch downloaded seven files (approximately 9.7 KB) from Edmond;
+their sizes and CRC-32 values matched the archive index. The full approximately
+19.5 GB fUSI archive has not been downloaded or validated by these checks.
+
+The remote dataset record confirms the selected fUSI archive is file ID `343674`
+and the source license is CC0 1.0. The recipe and its offline check pass Ruff
+formatting and lint checks. Finalization must exclude `dataverse_zip_index.json`,
+which is local download-cache metadata rather than a publication manifest.
 
 ## Before publication
 

@@ -11,6 +11,7 @@ dataset collection.
 | --- | --- | --- |
 | [Nunez-Elizalde 2022](recipes/nunez-elizalde-2022-bids/) | Convert recordings, metadata, events, and alignment derivatives to fUSI-BIDS | CC BY 4.0 |
 | [Landemard 2026](recipes/landemard-2026-bids/) | Stage an existing fUSI-BIDS dataset; no conversion required | CC BY-NC 4.0 |
+| [Khallaf 2026](recipes/khallaf-2026-bids/) | Download the published fUSI archive from Edmond, including source acquisitions; no conversion required | CC0 1.0 |
 | [Cybis Pereira 2026](recipes/cybis-pereira-2026-bids/) | Re-export recordings and derivatives with layout and orientation changes | CC BY 4.0 |
 | [Pereira 2025](recipes/pereira-2025-bids/) | Re-export 2D recordings with layout and orientation changes | CC BY 4.0 |
 | [Pepe Mariani 2026 recordings](recipes/pepe-mariani-2026-bids/) | Re-export recordings with layout, geometry, metadata, and timing corrections | CC BY 4.0 |
@@ -42,7 +43,7 @@ upload code. Import verification does not establish that each converter runs wit
 current ConfUSIus. AWS publication is not yet configured, and the existing OSF
 copies remain the download source for ConfUSIus.
 
-All seven locked environments now install. Recording reference checks and template
+All eight locked environments now install. Recording reference checks and template
 exports pass; complete dataset validation remains pending. See
 [VALIDATION.md](VALIDATION.md) for runnable checks, their scope, and the one-line
 Huang lockfile repair made after the initial import.
@@ -81,8 +82,9 @@ upload their indexes last, and do not use `aws s3 sync --delete`. No `latest/` d
 copy is planned. The bucket name, region, and tested releases will be documented
 before publication.
 
-Khallaf 2026 is not part of this initial seven-recipe migration; its existing
-ConfUSIus Dataverse fetcher remains unchanged.
+A short Khallaf 2026 download recipe supplements the seven imported recipes. It
+reuses a pinned version of ConfUSIus's existing Dataverse fetcher to stage the
+complete fUSI archive, including source acquisitions, without conversion.
 
 ## Licensing and attribution
 
