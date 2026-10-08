@@ -43,6 +43,11 @@ upload code. Import verification does not establish that each converter runs wit
 current ConfUSIus. AWS publication is not yet configured, and the existing OSF
 copies remain the download source for ConfUSIus.
 
+All seven locked environments now install. Recording reference checks and template
+exports pass; complete dataset validation remains pending. See
+[VALIDATION.md](VALIDATION.md) for runnable checks, their scope, and the one-line
+Huang lockfile repair made after the initial import.
+
 The planned publication layout is:
 
 ```text
@@ -64,7 +69,8 @@ ConfUSIus package and are immutable after publication.
 Migration proceeds in this order:
 
 1. Import the seven recipes unchanged and record their provenance (complete).
-2. Validate conversion behavior in the locked environments.
+2. Validate conversion behavior in the locked environments (baseline checks pass;
+   full dataset checks pending).
 3. Standardize output paths and add shared release finalization and checksums.
 4. Publish and verify one small template using the AWS CLI.
 5. Publish the remaining datasets and migrate ConfUSIus fetchers to public HTTPS.
