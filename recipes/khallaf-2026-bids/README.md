@@ -1,50 +1,40 @@
 # Khallaf 2026 fUSI-BIDS download
 
-Download the naked mole-rat fUSI dataset from Khallaf *et al.* (2026),
-"A queen odour mediates reproductive suppression in a eusocial mammal".
-The published tree is already BIDS/fUSI-BIDS; this recipe does not convert or
-modify its data, metadata, geometry, or filenames.
-
-## Source
-
-- Dataset: [Edmond, DOI 10.17617/3.7QCU1F](https://doi.org/10.17617/3.7QCU1F).
-- Archive: `fUSI dataset.zip`, Dataverse file ID `343674` (approximately 19.5 GB).
-- Paper: [DOI 10.1038/s41586-026-10772-5](https://doi.org/10.1038/s41586-026-10772-5).
-- Data license: [CC0 1.0](licenses/DATA_LICENSE.md).
-
-The recipe reuses ConfUSIus's public `fetch_khallaf_2026` function. Its dependency
-is pinned to a pre-S3 Git commit so future ConfUSIus downloader changes cannot
-redirect this recipe to our own mirror.
+Download and unpack the complete naked mole-rat fUSI archive from Edmond,
+including all derivatives and original Iconeus acquisitions. No conversion,
+filtering, or ConfUSIus dependency.
 
 ## Usage
 
-From this recipe directory:
+Requires `curl` and `uv`. From the repository root:
 
 ```bash
-uv run --locked main.py
+just khallaf-2026
 ```
 
-The default destination is `<repository>/work/khallaf-2026-bids/`, outside Git.
-To choose a different **parent** directory:
+Or from this recipe directory:
 
 ```bash
 uv run --locked main.py --data-dir /path/to/staging
-# Writes /path/to/staging/khallaf-2026-bids/.
 ```
 
-The fetcher extracts individual files via HTTP range requests, without retaining
-the outer ZIP. No subject, session, run, derivative, or reconstruction filter is
-applied. `sourcedata=True` explicitly includes the original Iconeus files, which
-the public fetcher excludes by default. Already-cached files are reused, so an
-interrupted download can be resumed by rerunning the command.
+The default output is `<repository>/work/khallaf-2026-bids/`. `--data-dir` selects
+its parent directory. Use a fresh output folder; existing datasets are never
+overwritten.
 
-This mirrors only the fUSI archive, not the other experimental datasets in the
-Edmond record. Any nested archives are retained as published. The local
-`dataverse_zip_index.json` is download-cache metadata, not a release manifest;
-exclude it when preparing a finalized S3 release. Downloading is separate from
-release validation and publication, and this recipe never uploads to S3.
+`curl` retries and resumes interrupted downloads. Python's standard library
+extracts the ZIP into a temporary directory, checks ZIP member CRCs during
+extraction, and rejects unsafe paths. The completed dataset is then renamed into
+place, and the downloaded ZIP is deleted. Failed extraction retains the ZIP for
+retry. Allow space for both the approximately 19.5 GB archive and its extracted
+contents. Nested archives are kept as published; this recipe does not upload.
 
-## Licensing
+## Source and license
 
-The repository's BSD-3-Clause [code license](../../LICENSE) applies to this recipe.
-The data retains CC0 1.0. Cite the original paper and dataset when using the data.
+- Dataset: [Edmond, DOI 10.17617/3.7QCU1F](https://doi.org/10.17617/3.7QCU1F).
+- Archive: `fUSI dataset.zip`, file ID `343674`.
+- Paper: [Khallaf et al. (2026), DOI 10.1038/s41586-026-10772-5](https://doi.org/10.1038/s41586-026-10772-5).
+- Data: [CC0 1.0](licenses/DATA_LICENSE.md); cite the original dataset and paper.
+- Code: repository [BSD-3-Clause license](../../LICENSE).
+
+Only the fUSI archive is mirrored, not the other experiments in the Edmond record.
