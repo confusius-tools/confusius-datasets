@@ -1075,7 +1075,7 @@ wheels = [
 ]
 
 [[package]]
-name = "huang-2026-template"
+name = "huang-2025-template"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
