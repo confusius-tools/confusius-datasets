@@ -16,7 +16,7 @@ landemard-2026 src:
 
 # Download the complete Khallaf fUSI archive from Edmond.
 khallaf-2026 *args:
-    uv run --locked --project recipes/khallaf-2026-bids python recipes/khallaf-2026-bids/main.py "$@"
+    uv run --locked --project recipes/khallaf-2026-bids recipes/khallaf-2026-bids/main.py "$@"
 
 # Re-export Cybis Pereira recordings; extra arguments go to the converter.
 cybis-pereira-2026 src *args:
@@ -32,12 +32,12 @@ pepe-mariani-2026 src *args:
 
 # Export and stage the Pepe Mariani template from bundled inputs.
 template-pepe-mariani-2026:
-    uv run --locked --project recipes/pepe-mariani-2026-template python recipes/pepe-mariani-2026-template/main.py
+    uv run --locked --project recipes/pepe-mariani-2026-template recipes/pepe-mariani-2026-template/main.py
     mkdir -p work/pepe-mariani-2026-template
     cp -a -- recipes/pepe-mariani-2026-template/outputs/pepe-mariani-2026-fusi-template.nii.gz work/pepe-mariani-2026-template/
 
 # Export and stage the Huang template from its bundled input.
 template-huang-2025:
-    uv run --locked --project recipes/huang-2025-template python recipes/huang-2025-template/main.py
+    uv run --locked --project recipes/huang-2025-template recipes/huang-2025-template/main.py
     mkdir -p work/huang-2025-template
     cp -a -- recipes/huang-2025-template/outputs/huang-2025-space-allen50_desc-vascular.nii.gz work/huang-2025-template/
