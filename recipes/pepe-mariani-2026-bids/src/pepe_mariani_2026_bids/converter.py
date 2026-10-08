@@ -1,0 +1,268 @@
+from __future__ import annotations
+
+import json
+import re
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+from typing import cast
+
+import nibabel as nib
+import numpy as np
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+
+CONSOLE = Console()
+FUSI_REPETITION_TIME = 2.4
+CHUNK_DELAY_TIME = 2.0
+VOLUME_DELAY_TIME = 0.2
+CHUNK_SPACING = 1.0
+CHUNK_THICKNESS = 0.4
+_CHUNK_RE = re.compile(r"_(?:pose|chunk)-(\d+)_")
+
+
+@dataclass
+class ConversionSummary:
+    planned_files: int
+    copied_files: int
+    converted_niftis: int
+    skipped_files: int
+    dry_run: bool
+
+
+def _is_nifti(path: Path) -> bool:
+    name = path.name.lower()
+    return name.endswith((".nii", ".nii.gz"))
+
+
+def _dest_rel(rel: Path) -> Path:
+    parts = rel.parts[1:] if rel.parts and rel.parts[0] == "rawdata" else rel.parts
+    dest = Path(*parts)
+    name = dest.name.replace("_pose-vol", "").replace("_chunk-vol", "")
+    return dest.with_name(name.replace("_pose-", "_chunk-"))
+
+
+def _permutation(order: list[int]) -> np.ndarray:
+    p = np.eye(4)
+    p[:3, :3] = 0
+    for new_axis, old_axis in enumerate(order):
+        p[old_axis, new_axis] = 1
+    return p
+
+
+def _world_transform() -> np.ndarray:
+    s = np.eye(4)
+    s[:3, :3] = [[1, 0, 0], [0, 0, 1], [0, 1, 0]]
+    return s
+
+
+def _is_fusi_recording(rel: Path) -> bool:
+    name = rel.name
+    return "task-" in name and "_pwd" in name and "angio" not in rel.parts
+
+
+def _chunk_index(rel: Path) -> int | None:
+    match = _CHUNK_RE.search(rel.name)
+    return int(match.group(1)) if match else None
+
+
+def _chunk_group(rel: Path) -> Path:
+    return rel.with_name(_CHUNK_RE.sub("_chunk-X_", rel.name))
+
+
+def _needs_chunk_delay_time(rel: Path) -> bool:
+    return _chunk_index(rel) is not None and (
+        rel.parts[0] == "rawdata"
+        or (len(rel.parts) > 1 and rel.parts[:2] == ("derivatives", "registered"))
+    )
+
+
+def _needs_volume_delay_time(rel: Path) -> bool:
+    return (
+        len(rel.parts) > 1
+        and rel.parts[:2] == ("derivatives", "preprocessed")
+        and ("_pose-vol_" in rel.name or "_chunk-vol_" in rel.name)
+    )
+
+
+def _chunk_base_x(files: list[Path], src: Path) -> dict[Path, float]:
+    groups: dict[Path, list[tuple[int, float]]] = {}
+    for path in files:
+        rel = path.relative_to(src)
+        chunk = _chunk_index(rel)
+        if chunk is None or not _is_fusi_recording(rel):
+            continue
+        img = cast(nib.Nifti1Image, nib.load(path))
+        if len(img.shape) == 4 and img.shape[0] == 1:
+            groups.setdefault(_chunk_group(rel), []).append((chunk, float(img.affine[0, 3])))
+    return {group: min(values)[1] for group, values in groups.items()}
+
+
+def _convert_nifti(src: Path, dest: Path, rel: Path, chunk_base_x: float | None) -> None:
+    img = cast(nib.Nifti1Image, nib.load(src))
+    shape = img.shape
+    if len(shape) not in (3, 4):
+        raise ValueError(f"Expected 3D or 4D NIfTI, got {shape}: {src}")
+
+    order = [2, 1, 0]
+    data = np.asanyarray(img.dataobj).transpose(*order, *range(3, len(shape)))
+    affine = _world_transform() @ img.affine @ _permutation(order)
+
+    header = img.header.copy()
+    header.set_data_shape(data.shape)
+    header.set_xyzt_units("mm", "sec" if len(shape) == 4 else "unknown")
+    if len(shape) == 4 and _is_fusi_recording(rel):
+        zooms = list(header.get_zooms())
+        zooms[3] = FUSI_REPETITION_TIME
+        chunk = _chunk_index(rel)
+        if shape[0] == 1 and chunk is not None:
+            zooms[2] = CHUNK_THICKNESS
+            affine[:, 2] = 0
+            affine[2, 2] = -CHUNK_THICKNESS
+            if chunk_base_x is not None:
+                delta = float(img.affine[0, 3]) - chunk_base_x
+                affine[0, 3] = chunk_base_x
+                affine[2, 3] += delta * 1000 if abs(delta) < 0.01 else delta
+            else:
+                affine[2, 3] -= chunk * CHUNK_SPACING
+        header.set_zooms(zooms)
+    out = nib.Nifti1Image(data, affine, header)
+    out.set_qform(affine, int(img.header["qform_code"]))
+    out.set_sform(affine, int(img.header["sform_code"]))
+    nib.save(out, dest)
+
+
+def _normalize_pwd_sidecar(payload: dict) -> dict:
+    renames = {
+        "ProbeElevationWidth": "ProbeFocalWidth",
+        "ProbeElevationAperture": "ProbeAperture",
+        "ProbeElevationFocus": "ProbeFocalDepth",
+        "PlaneWaveElevationAngles": "PlaneWaveAngles",
+        "UltrafastSamplingFrequency": "CompoundSamplingFrequency",
+    }
+    for old, new in renames.items():
+        if old in payload:
+            payload[new] = payload.pop(old)
+
+    filters = payload.get("ClutterFilters")
+    if isinstance(filters, list):
+        values = []
+        for item in filters:
+            if isinstance(item, str):
+                values.append(item)
+            elif isinstance(item, dict) and item.get("FilterType") == "Fixed-threshold SVD":
+                low = item.get("LowThreshold")
+                high = item.get("HighThreshold")
+                values.append(f"Fixed-threshold SVD [{low}-{high}]")
+        payload["ClutterFilters"] = values
+    return payload
+
+
+def _copy_metadata(src: Path, dest: Path, rel: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if rel == Path("dataset_description.json"):
+        text = src.read_text()
+        # Original file has one trailing comma; normalize JSON so the BIDS root
+        # is valid without otherwise changing values.
+        payload = json.loads(text.replace("\n    },\n  ]", "\n    }\n  ]"))
+        dest.write_text(json.dumps(payload, indent=2) + "\n")
+        shutil.copystat(src, dest)
+        return
+    if rel == Path("pwd.json"):
+        payload = _normalize_pwd_sidecar(json.loads(src.read_text()))
+        dest.write_text(json.dumps(payload, indent=2) + "\n")
+        shutil.copystat(src, dest)
+        return
+    if rel.suffix == ".json" and _is_fusi_recording(rel):
+        payload = json.loads(src.read_text())
+        payload["RepetitionTime"] = FUSI_REPETITION_TIME
+        if _needs_chunk_delay_time(rel):
+            payload["DelayTime"] = CHUNK_DELAY_TIME
+        elif _needs_volume_delay_time(rel):
+            payload["DelayTime"] = VOLUME_DELAY_TIME
+        dest.write_text(json.dumps(payload, indent=2) + "\n")
+        shutil.copystat(src, dest)
+        return
+    shutil.copy2(src, dest)
+
+
+def _progress_columns():
+    return [
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+    ]
+
+
+def convert(
+    *, src: Path, out: Path, overwrite: bool = False, dry_run: bool = False
+) -> ConversionSummary:
+    src = src.expanduser().resolve()
+    out = out.expanduser().resolve()
+    if not src.is_dir():
+        raise NotADirectoryError(src)
+
+    files = sorted(p for p in src.rglob("*") if p.is_file())
+    chunk_base_x = _chunk_base_x([p for p in files if _is_nifti(p)], src)
+    niftis: list[tuple[Path, Path]] = []
+    copied = skipped = 0
+
+    with Progress(*_progress_columns(), console=CONSOLE) as progress:
+        task = progress.add_task("Copying metadata", total=len(files))
+        for path in files:
+            rel = path.relative_to(src)
+            dest = out / _dest_rel(rel)
+            progress.update(task, description=f"Planning {dest.name}")
+
+            if dest.exists() and not overwrite:
+                skipped += 1
+                progress.advance(task)
+                continue
+
+            if _is_nifti(path):
+                niftis.append((path, dest))
+                if dry_run:
+                    CONSOLE.log(
+                        f"[dim]dry-run convert:[/] {rel} -> {dest.relative_to(out)}"
+                    )
+                progress.advance(task)
+                continue
+
+            copied += 1
+            if not dry_run:
+                _copy_metadata(path, dest, rel)
+            else:
+                CONSOLE.log(f"[dim]dry-run copy:[/] {rel} -> {dest.relative_to(out)}")
+            progress.advance(task)
+
+    converted = 0
+    if niftis:
+        with Progress(*_progress_columns(), console=CONSOLE) as progress:
+            task = progress.add_task("Converting NIfTIs", total=len(niftis))
+            for path, dest in niftis:
+                progress.update(task, description=f"Converting {dest.name}")
+                converted += 1
+                if not dry_run:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    rel_src = path.relative_to(src)
+                    _convert_nifti(path, dest, rel_src, chunk_base_x.get(_chunk_group(rel_src)))
+                progress.advance(task)
+
+    return ConversionSummary(
+        planned_files=len(files),
+        copied_files=copied,
+        converted_niftis=converted,
+        skipped_files=skipped,
+        dry_run=dry_run,
+    )

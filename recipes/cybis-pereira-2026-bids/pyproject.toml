@@ -1,0 +1,28 @@
+[project]
+name = "cybis-pereira-2026-bids"
+version = "0.1.0"
+description = "Upload Cybis Pereira et al. 2026 fUSI-BIDS dataset to OSF"
+requires-python = ">=3.13"
+dependencies = [
+    "confusius",
+    "osfclient>=0.0.5",
+    "python-dotenv>=1.0.0",
+    "rich>=14.0.0",
+]
+
+[project.scripts]
+cybis-upload = "cybis_pereira_2026_bids.cli:main"
+cybis-convert = "cybis_pereira_2026_bids.cli:convert_main"
+
+[build-system]
+requires = ["uv_build>=0.9.11,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.11",
+    "ty>=0.0.32",
+]
+
+[tool.uv.sources]
+confusius = { git = "https://github.com/confusius-tools/confusius.git" }

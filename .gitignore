@@ -1,0 +1,21 @@
+# Generated data and local build products.
+/publish/
+/work/
+**/outputs/
+**/output/
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/dist/
+**/*.egg-info/
+
+# Credentials and local configuration.
+.env
+.env.*
+!.env.example
+.aws/
+
+# Operating-system files.
+.DS_Store

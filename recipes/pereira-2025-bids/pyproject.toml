@@ -1,0 +1,26 @@
+[project]
+name = "pereira-2025-bids"
+version = "0.1.0"
+description = "Convert Pereira et al. fUSI recordings to fUSI-BIDS and upload to OSF"
+requires-python = ">=3.13"
+dependencies = [
+    "nibabel>=5.4.2",
+    "numpy>=2.3.5",
+    "osfclient>=0.0.5",
+    "python-dotenv>=1.0.0",
+    "rich>=14.0.0",
+]
+
+[project.scripts]
+pereira-convert = "pereira_2025_bids.cli:main"
+pereira-upload = "pereira_2025_bids.cli:upload_main"
+
+[build-system]
+requires = ["uv_build>=0.9.11,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.11",
+    "ty>=0.0.32",
+]
