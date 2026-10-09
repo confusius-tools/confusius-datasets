@@ -5,15 +5,21 @@ This repository contains a fUSI-BIDS re-export of the dataset from the Cybis Per
 The original dataset is published on Zenodo as a single ZIP archive. This recipe
 prepares individual files for release on S3 so downstream tooling can stream them.
 
-This is a re-export rather than a full conversion. Only two changes are applied to
-the Zenodo tree:
+This is a re-export rather than a full conversion. Changes apply to the output
+copy, not the source Zenodo tree:
 
-- the `fus` datatype folder is renamed to `fusi` (BIDS-BEP for functional
-  ultrasound imaging);
+- legacy datatype paths and references are updated (`fus` to `fusi`, `angio` to
+  `susi`, and the `_fus` suffix to `_fusi`);
+- legacy frequency/voltage metadata fields are renamed and the redundant
+  `PowerDopplerIntegrationStride` is removed;
+- the legacy fixed-threshold SVD filter object (threshold 60) is represented as
+  `ClutterFilters: ["svd:remove_first_60_components"]` before loading;
 - NIfTI files are rewritten in the [ConfUSIus](https://confusius.tools) axis
   convention: `[time]`, `z` stacking, `y` depth, `x` lateral.
 
-No other files, metadata, or values are modified.
+Irregular source timestamps are preserved in `VolumeTiming`; the NIfTI header's
+`pixdim[4]` is zero when it cannot represent them. The expected save warning for
+this case is suppressed; other warnings remain visible.
 
 ## References
 

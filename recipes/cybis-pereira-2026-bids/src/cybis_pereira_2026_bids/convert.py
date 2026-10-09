@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import json
 import shutil
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,6 +80,10 @@ def _rewrite_references(payload: dict) -> dict:
         if old in payload:
             payload[new] = payload.pop(old)
     payload.pop("PowerDopplerIntegrationStride", None)
+    if payload.get("ClutterFilters") == [
+        {"FilterType": "Fixed-threshold SVD", "Threshold": 60}
+    ]:
+        payload["ClutterFilters"] = ["svd:remove_first_60_components"]
     for key in ("IntendedFor", "Sources", "RawSources"):
         value = payload.get(key)
         if isinstance(value, str):
@@ -111,8 +116,6 @@ def _transform(pwd):
         affines["world_to_sform"] = sform @ np.linalg.inv(qform)
     attrs = dict(pwd.attrs)
     attrs["affines"] = affines
-    if attrs.get("clutter_filters") is not None:
-        attrs["clutter_filters"] = ["svd:remove_first_60_components"]
     dims = ("time", "j", "k", "i") if "time" in pwd.dims else ("j", "k", "i")
     data = np.asarray(pwd.transpose(*dims).isel(k=slice(None, None, -1)))
     return cf.create_voxeldata(
@@ -235,7 +238,19 @@ def convert(
 
                 pwd = cf.load(dest)
                 pwd = _transform(pwd)
-                cf.save(pwd, dest)
+                # Source timing jitter is real; retain VolumeTiming rather than round it.
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=(
+                            r"Coordinate 'time' has non-uniform sampling\. Exact timings are "
+                            r"saved in the JSON sidecar as VolumeTiming, but the NIfTI "
+                            r"header's pixdim\[4\] will be set as 0\.0 as it cannot represent "
+                            r"irregular acquisition times\."
+                        ),
+                        category=UserWarning,
+                    )
+                    cf.save(pwd, dest)
                 converted += 1
                 progress.advance(task)
 
