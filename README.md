@@ -17,6 +17,46 @@ Git; finalized releases are published as individual files on Amazon S3.
 | [Pepe Mariani 2026 template](recipes/pepe-mariani-2026-template/) | CC BY 4.0 |
 | [Huang 2025 template](recipes/huang-2025-template/) | CC BY-NC-SA 4.0 |
 
+## Source downloads
+
+These are the original inputs, not the converted AWS releases. Download and unpack
+before running a recipe, except Khallaf (downloaded automatically) and the templates
+(inputs already bundled). Links below identify the specific source files used.
+
+| Dataset | Source record | Download |
+| --- | --- | --- |
+| Nunez-Elizalde 2022 | [Figshare](https://doi.org/10.6084/m9.figshare.19316228) | [dataset.zip](https://ndownloader.figshare.com/files/34307132) |
+| Landemard 2026 | [UCL Figshare](https://doi.org/10.5522/04/31376338) | [Subject ZIPs and root metadata](#landemard-source-files) |
+| Khallaf 2026 | [Edmond](https://doi.org/10.17617/3.7QCU1F) | [fUSI dataset.zip](https://edmond.mpg.de/api/access/datafile/343674) |
+| Cybis Pereira 2026 | [Zenodo record 15476373](https://zenodo.org/records/15476373) | [dataset.zip](https://zenodo.org/api/records/15476373/files/dataset.zip/content) |
+| Pereira 2025 | [Zenodo record 15194839](https://zenodo.org/records/15194839) | [rawdata.zip](https://zenodo.org/api/records/15194839/files/rawdata.zip/content) |
+| Pepe Mariani 2026 recordings | [Zenodo record 20070510](https://zenodo.org/records/20070510) | [2026-02-03_PepeMariani_fUSI-anaesthetised.zip](https://zenodo.org/api/records/20070510/files/2026-02-03_PepeMariani_fUSI-anaesthetised.zip/content) |
+
+### Landemard source files
+
+Extract these five archives into one BIDS root, alongside the root metadata below;
+pass that directory to `just landemard-2026`:
+
+- [sub-ALD001.zip](https://ndownloader.figshare.com/files/63929310)
+- [sub-ALD002.zip](https://ndownloader.figshare.com/files/63929292)
+- [sub-ALD009.zip](https://ndownloader.figshare.com/files/63929304)
+- [sub-ALD010.zip](https://ndownloader.figshare.com/files/63929301)
+- [sub-ALD019.zip](https://ndownloader.figshare.com/files/63929295)
+- Root metadata: [dataset_description.json](https://ndownloader.figshare.com/files/63929163),
+  [participants.json](https://ndownloader.figshare.com/files/63929166),
+  [participants.tsv](https://ndownloader.figshare.com/files/63929172),
+  [README.txt](https://ndownloader.figshare.com/files/63929169).
+
+Additional analysis `.npz` downloads are available from the source record.
+
+### Bundled template inputs
+
+- Huang 2025: [OFUSA_Atlas_Mouse_Vascular.nii](recipes/huang-2025-template/inputs/OFUSA_Atlas_Mouse_Vascular.nii).
+- Pepe Mariani 2026: [source template](recipes/pepe-mariani-2026-template/inputs/published_params/source-BI_space-fUSI_desc-GillianTemplate_res-110umx100umx100um_feature.nii.gz)
+  from [Zenodo record 18486493](https://zenodo.org/records/18486493)
+  ([source archive](https://zenodo.org/api/records/18486493/files/2026-02-03_PepeMariani_fUSI-anaesthetised.zip/content)),
+  plus the [registration transform supplied by the authors](recipes/pepe-mariani-2026-template/inputs/registration/transform_Affine_AllenPIRRAS100um-2-fUSIPIRRAS_Composite.h5).
+
 ## 1. Run recipes
 
 Install [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/). From the
