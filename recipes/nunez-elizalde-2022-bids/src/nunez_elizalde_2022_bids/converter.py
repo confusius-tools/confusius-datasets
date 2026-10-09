@@ -461,6 +461,30 @@ def _session_label(date: str) -> str:
     return date.replace("-", "")
 
 
+def _update_bids_sidecar(nifti: Path, *, windows_in_seconds: bool = False) -> None:
+    # shortcut: normalize older ConfUSIus exports until recipes require issue #484's fix.
+    sidecar = nifti.with_suffix("").with_suffix(".json")
+    payload = json.loads(sidecar.read_text())
+    for old, new in {
+        "ProbeCentralFrequency": "ProbeCenterFrequency",
+        "UltrasoundTransmitFrequency": "TransmitFrequency",
+        "UltrasoundPulseRepetitionFrequency": "PulseRepetitionFrequency",
+        "ProbeVoltage": "TransmitVoltage",
+    }.items():
+        if old in payload:
+            payload[new] = payload.pop(old)
+    payload.pop("PowerDopplerIntegrationStride", None)
+    if windows_in_seconds:
+        # Use known recipe seconds, not version-dependent cf.save output units.
+        for key, attr in {
+            "ClutterFilterWindowDuration": "clutter_filter_window_duration",
+            "ClutterFilterWindowStride": "clutter_filter_window_stride",
+            "PowerDopplerIntegrationDuration": "power_doppler_integration_duration",
+        }.items():
+            payload[key] = STATIC_METADATA[attr] * 1000
+    sidecar.write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def _angio_output_path(out_dir: Path, subject: str, date: str) -> Path:
     ses_label = _session_label(date)
     filename = f"sub-{subject}_ses-{ses_label}_pwd.nii.gz"
@@ -493,7 +517,7 @@ def _build_angio_sidecar(
         "ProbeManufacturer": STATIC_METADATA["probe_manufacturer"],
         "ProbeType": STATIC_METADATA["probe_type"],
         "ProbeModel": STATIC_METADATA["probe_model"],
-        "ProbeCentralFrequency": STATIC_METADATA["probe_central_frequency"],
+        "ProbeCenterFrequency": STATIC_METADATA["probe_central_frequency"],
         "ProbeNumberOfElements": STATIC_METADATA["probe_number_of_elements"],
         "ProbePitch": STATIC_METADATA["probe_pitch"],
         "ProbeFocalWidth": STATIC_METADATA["probe_focal_width"],
@@ -504,13 +528,13 @@ def _build_angio_sidecar(
     if metadata.depth_mm is not None:
         sidecar["Depth"] = [float(metadata.depth_mm[0]), float(metadata.depth_mm[1])]
     if metadata.transmit_frequency_hz is not None:
-        sidecar["UltrasoundTransmitFrequency"] = metadata.transmit_frequency_hz
+        sidecar["TransmitFrequency"] = metadata.transmit_frequency_hz
     if metadata.compound_sampling_frequency_hz is not None:
         sidecar["CompoundSamplingFrequency"] = metadata.compound_sampling_frequency_hz
     if metadata.plane_wave_angles_deg is not None:
         sidecar["PlaneWaveAngles"] = metadata.plane_wave_angles_deg
     if metadata.probe_voltage_v is not None:
-        sidecar["ProbeVoltage"] = metadata.probe_voltage_v
+        sidecar["TransmitVoltage"] = metadata.probe_voltage_v
     if metadata.ystack_positions_mm.size > 0:
         sidecar["YStackPositions"] = [
             float(v) for v in metadata.ystack_positions_mm.tolist()
@@ -636,6 +660,7 @@ def _save_conformed_nifti(
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     cf.save(da_conformed, destination)
+    _update_bids_sidecar(destination)
 
 
 def _write_derivatives_dataset_description(derivatives_root: Path) -> None:
@@ -1202,6 +1227,7 @@ def _convert_run(
             category=UserWarning,
         )
         cf.save(da, plan.output_nifti)
+    _update_bids_sidecar(plan.output_nifti, windows_in_seconds=True)
 
     events_tsv, events_json = _event_paths(plan.output_nifti)
     events = _load_events_for_run(

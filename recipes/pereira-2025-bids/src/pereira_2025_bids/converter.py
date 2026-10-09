@@ -55,6 +55,15 @@ def _dest_rel(rel: Path) -> Path:
 
 
 def _rewrite_references(payload: dict) -> dict:
+    for old, new in {
+        "ProbeCentralFrequency": "ProbeCenterFrequency",
+        "UltrasoundTransmitFrequency": "TransmitFrequency",
+        "UltrasoundPulseRepetitionFrequency": "PulseRepetitionFrequency",
+        "ProbeVoltage": "TransmitVoltage",
+    }.items():
+        if old in payload:
+            payload[new] = payload.pop(old)
+    payload.pop("PowerDopplerIntegrationStride", None)
     for key in ("IntendedFor", "Sources", "RawSources"):
         value = payload.get(key)
         if isinstance(value, str):
@@ -164,7 +173,7 @@ def convert(
                     with dest.open("w", newline="") as output:
                         csv.writer(output, delimiter="\t", lineterminator="\n").writerows(rows)
                     shutil.copystat(path, dest)
-                elif path.suffix == ".json" and "angio/" in path.read_text():
+                elif path.suffix == ".json":
                     payload = json.loads(path.read_text(), object_hook=_rewrite_references)
                     dest.write_text(json.dumps(payload, indent=2) + "\n")
                     shutil.copystat(path, dest)

@@ -26,7 +26,6 @@ STATIC_METADATA: dict[str, Any] = {
     "probe_focal_width": 0.4,
     "probe_focal_depth": 8.0,
     "power_doppler_integration_duration": 0.3,
-    "power_doppler_integration_stride": 0.3,
     "clutter_filter_window_duration": 0.4,
     "clutter_filter_window_stride": 0.3,
     "clutter_filters": [

@@ -173,6 +173,15 @@ def _normalize_pwd_sidecar(payload: dict) -> dict:
 
 
 def _rewrite_references(payload: dict) -> dict:
+    for old, new in {
+        "ProbeCentralFrequency": "ProbeCenterFrequency",
+        "UltrasoundTransmitFrequency": "TransmitFrequency",
+        "UltrasoundPulseRepetitionFrequency": "PulseRepetitionFrequency",
+        "ProbeVoltage": "TransmitVoltage",
+    }.items():
+        if old in payload:
+            payload[new] = payload.pop(old)
+    payload.pop("PowerDopplerIntegrationStride", None)
     for key in ("IntendedFor", "Sources", "RawSources"):
         value = payload.get(key)
         if isinstance(value, str):
@@ -221,7 +230,7 @@ def _copy_metadata(src: Path, dest: Path, rel: Path) -> None:
         dest.write_text(json.dumps(payload, indent=2) + "\n")
         shutil.copystat(src, dest)
         return
-    if rel.suffix == ".json" and "angio/" in src.read_text():
+    if rel.suffix == ".json":
         payload = json.loads(src.read_text(), object_hook=_rewrite_references)
         dest.write_text(json.dumps(payload, indent=2) + "\n")
         shutil.copystat(src, dest)

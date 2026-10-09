@@ -46,6 +46,10 @@ The version comes from each recipe's `pyproject.toml`. Recording converters and
 staging scripts accept `--out` to override the destination. Landemard copies an
 existing BIDS tree into a fresh destination. Landemard and Khallaf update legacy
 `angio/` datatype folders to `susi/`, including scan-table and JSON references.
+Dataset sidecars use the v0.0.14 frequency/voltage field names and omit the redundant
+`PowerDopplerIntegrationStride`. Nunez-generated processing windows are expressed
+in milliseconds; acquisition timestamps and frame durations remain in seconds.
+Other recipes preserve the units supplied by their source sidecars.
 
 ## 2. Generate a release manifest
 

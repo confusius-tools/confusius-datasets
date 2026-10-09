@@ -22,6 +22,15 @@ def _susi_reference(path: str) -> str:
 
 
 def _rewrite_references(payload: dict) -> dict:
+    for old, new in {
+        "ProbeCentralFrequency": "ProbeCenterFrequency",
+        "UltrasoundTransmitFrequency": "TransmitFrequency",
+        "UltrasoundPulseRepetitionFrequency": "PulseRepetitionFrequency",
+        "ProbeVoltage": "TransmitVoltage",
+    }.items():
+        if old in payload:
+            payload[new] = payload.pop(old)
+    payload.pop("PowerDopplerIntegrationStride", None)
     for key in ("IntendedFor", "Sources", "RawSources"):
         value = payload.get(key)
         if isinstance(value, str):
@@ -58,8 +67,6 @@ def update_susi(root: Path) -> None:
         if {"sourcedata", "code"}.intersection(sidecar.relative_to(root).parts):
             continue
         text = sidecar.read_text()
-        if "angio/" not in text:
-            continue
         payload = json.loads(text, object_hook=_rewrite_references)
         if payload != json.loads(text):
             sidecar.write_text(json.dumps(payload, indent=2) + "\n")
