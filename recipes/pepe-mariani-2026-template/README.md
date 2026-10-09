@@ -33,6 +33,20 @@ Notes:
   `2026-02-03_PepeMariani_fUSI-anaesthetised/derivatives/Params/angio/templates/`.
 - The HDF5 transform was communicated by the paper authors.
 
+## Coordinate frames
+
+The export retains the original axis-aligned native/scanner geometry in `qform`
+(native voxel spacing and the original export's coordinate origin). The full
+Allen atlas alignment, including shear, is stored separately in `sform`.
+The form codes are `qform_code = 1` (scanner anatomical) and `sform_code = 5`
+(other standard template space, here Allen).
+No image interpolation is performed; only the voxel axes are reordered.
+
+Load with `coordinate_affine="qform"` for registration in scanner space.
+`template.affines["world_to_sform"]` then maps scanner world coordinates into
+Allen atlas world coordinates. Loading with `coordinate_affine="sform"` instead
+expresses the same voxel data directly in Allen space.
+
 ## Output
 
 Running the export writes:
@@ -55,10 +69,19 @@ Use it later with ConfUSIus:
 import confusius as cf
 
 template = cf.load(
-    "../../publish/templates/pepe-mariani-2026-template/1.0.0/pepe-mariani-2026-fusi-template.nii.gz"
+    "../../publish/templates/pepe-mariani-2026-template/1.0.0/pepe-mariani-2026-fusi-template.nii.gz",
+    coordinate_affine="qform",
 )
 atlas = cf.datasets.fetch_brainglobe_atlas("allen_mouse_100um")
-resampled_atlas = atlas.atlas.resample_like(template)
+resampled_atlas = atlas.atlas.resample_like(
+    template, template.affines["world_to_sform"]
+)
+```
+
+Run the geometry regression checks from this recipe directory:
+
+```bash
+uv run --locked python -m doctest main.py
 ```
 
 ## Licensing

@@ -117,12 +117,32 @@ def make_native_allen_oriented_template(
 ) -> xr.DataArray:
     """Convert the native template into a ConfUSIus-style coronal layout.
 
-    >>> source = cf.create_voxeldata(np.arange(24).reshape(4, 2, 3), dims=("k", "j", "i"), spacing=(1, 1, 1))
+    >>> source = cf.create_voxeldata(np.arange(24, dtype=np.float32).reshape(4, 2, 3), dims=("k", "j", "i"), spacing=(1, 1, 1))
     >>> result = make_native_allen_oriented_template(source, np.eye(4))
     >>> np.array_equal(result, np.asarray(source).transpose(2, 1, 0))
     True
-    >>> np.allclose(result.fusi.affine.voxel_to_world[:3, :3], np.eye(3)[::-1])
+    >>> np.allclose(result.fusi.affine.voxel_to_world, np.eye(4))
     True
+    >>> np.allclose((result.affines["world_to_sform"] @ result.fusi.affine.voxel_to_world)[:3, :3], np.eye(3)[::-1])
+    True
+    >>> from tempfile import TemporaryDirectory
+    >>> atlas_affine = np.eye(4)
+    >>> atlas_affine[0, 1] = 0.2
+    >>> atlas_affine[:3, 3] = [2, -3, 4]
+    >>> result = make_native_allen_oriented_template(source, atlas_affine)
+    >>> with TemporaryDirectory() as directory:
+    ...     path = Path(directory) / "template.nii.gz"
+    ...     cf.save(result, path)
+    ...     scanner = cf.load(path, coordinate_affine="qform")
+    ...     allen = cf.load(path, coordinate_affine="sform")
+    ...     np.allclose(scanner.fusi.affine.voxel_to_world, result.fusi.affine.voxel_to_world)
+    ...     np.allclose(scanner.affines["world_to_sform"] @ scanner.fusi.affine.voxel_to_world, allen.fusi.affine.voxel_to_world)
+    ...     np.array_equal(scanner.values, result.values)
+    ...     scanner.attrs["qform_code"], allen.attrs["sform_code"]
+    True
+    True
+    True
+    (1, 5)
 
     Parameters
     ----------
@@ -134,18 +154,30 @@ def make_native_allen_oriented_template(
     Returns
     -------
     xarray.DataArray
-        Reoriented template carrying the full voxel-to-atlas transform.
+        Reoriented template in the original axis-aligned scanner frame, with
+        `world_to_sform` carrying the full scanner-to-Allen transform.
     """
     # Coronal voxel layout: k<-old i, j<-old j, i<-old k.
     new_to_old = np.eye(4)
     new_to_old[:3, :3] = [[0, 0, 1], [0, 1, 0], [1, 0, 0]]
+    voxel_to_allen = template_to_atlas @ new_to_old
+    spacing = fusi.fusi.spacing
+    voxel_to_scanner = np.diag([spacing["i"], spacing["j"], spacing["k"], 1.0])
+    # Preserve the original export's native spacing and coordinate origin in qform.
+    voxel_to_scanner[:3, 3] = template_to_atlas[:3, 3]
     return cf.create_voxeldata(
         np.asarray(fusi).transpose(2, 1, 0),
         dims=("k", "j", "i"),
-        voxel_to_world=template_to_atlas @ new_to_old,
+        voxel_to_world=voxel_to_scanner,
         units=fusi.fusi.affine.units,
-        # The registration contains shear, which only sform can encode exactly.
-        attrs={"sform_code": 1, "qform_code": 0},
+        attrs={
+            "qform_code": 1,
+            "sform_code": 5,
+            # Keep the registration's shear in sform, not the scanner qform.
+            "affines": {
+                "world_to_sform": voxel_to_allen @ np.linalg.inv(voxel_to_scanner)
+            },
+        },
         name="fusi_template_native_allen_oriented",
     )
 
