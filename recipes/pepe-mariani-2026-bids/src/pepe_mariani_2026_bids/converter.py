@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 import shutil
@@ -45,8 +46,12 @@ def _is_nifti(path: Path) -> bool:
 
 
 def _dest_rel(rel: Path) -> Path:
+    if rel.parts and rel.parts[0] in ("sourcedata", "code"):
+        return rel
     parts = rel.parts[1:] if rel.parts and rel.parts[0] == "rawdata" else rel.parts
-    dest = Path(*parts)
+    dest = Path(*("susi" if part == "angio" and
+                   (i == 0 or parts[i - 1].startswith(("sub-", "ses-"))) else part
+                   for i, part in enumerate(parts)))
     name = dest.name.replace("_pose-vol", "").replace("_chunk-vol", "")
     return dest.with_name(name.replace("_pose-", "_chunk-"))
 
@@ -67,7 +72,7 @@ def _world_transform() -> np.ndarray:
 
 def _is_fusi_recording(rel: Path) -> bool:
     name = rel.name
-    return "task-" in name and "_pwd" in name and "angio" not in rel.parts
+    return "task-" in name and "_pwd" in name and not {"angio", "susi"}.intersection(rel.parts)
 
 
 def _chunk_index(rel: Path) -> int | None:
@@ -167,28 +172,57 @@ def _normalize_pwd_sidecar(payload: dict) -> dict:
     return payload
 
 
+def _rewrite_references(payload: dict) -> dict:
+    for key in ("IntendedFor", "Sources", "RawSources"):
+        value = payload.get(key)
+        if isinstance(value, str):
+            payload[key] = _dest_rel(Path(value)).as_posix()
+        elif isinstance(value, list):
+            payload[key] = [_dest_rel(Path(path)).as_posix() for path in value]
+    return payload
+
+
 def _copy_metadata(src: Path, dest: Path, rel: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
+    if rel.parts[0] in ("sourcedata", "code"):
+        shutil.copy2(src, dest)
+        return
+    if rel.name.endswith("_scans.tsv"):
+        with src.open(newline="") as source:
+            rows = list(csv.reader(source, delimiter="\t"))
+        filename_column = rows[0].index("filename")
+        for row in rows[1:]:
+            row[filename_column] = _dest_rel(Path(row[filename_column])).as_posix()
+        with dest.open("w", newline="") as output:
+            csv.writer(output, delimiter="\t", lineterminator="\n").writerows(rows)
+        shutil.copystat(src, dest)
+        return
     if rel == Path("dataset_description.json"):
         text = src.read_text()
         # Original file has one trailing comma; normalize JSON so the BIDS root
         # is valid without otherwise changing values.
-        payload = json.loads(text.replace("\n    },\n  ]", "\n    }\n  ]"))
+        payload = json.loads(text.replace("\n    },\n  ]", "\n    }\n  ]"),
+                             object_hook=_rewrite_references)
         dest.write_text(json.dumps(payload, indent=2) + "\n")
         shutil.copystat(src, dest)
         return
     if rel == Path("pwd.json"):
-        payload = _normalize_pwd_sidecar(json.loads(src.read_text()))
+        payload = _normalize_pwd_sidecar(json.loads(src.read_text(), object_hook=_rewrite_references))
         dest.write_text(json.dumps(payload, indent=2) + "\n")
         shutil.copystat(src, dest)
         return
     if rel.suffix == ".json" and _is_fusi_recording(rel):
-        payload = json.loads(src.read_text())
+        payload = json.loads(src.read_text(), object_hook=_rewrite_references)
         payload["RepetitionTime"] = FUSI_REPETITION_TIME
         if _needs_chunk_delay_time(rel):
             payload["DelayTime"] = CHUNK_DELAY_TIME
         elif _needs_volume_delay_time(rel):
             payload["DelayTime"] = VOLUME_DELAY_TIME
+        dest.write_text(json.dumps(payload, indent=2) + "\n")
+        shutil.copystat(src, dest)
+        return
+    if rel.suffix == ".json" and "angio/" in src.read_text():
+        payload = json.loads(src.read_text(), object_hook=_rewrite_references)
         dest.write_text(json.dumps(payload, indent=2) + "\n")
         shutil.copystat(src, dest)
         return
@@ -217,6 +251,11 @@ def convert(
     if not src.is_dir():
         raise NotADirectoryError(src)
 
+    for folder in src.rglob("angio"):
+        if (folder.is_dir() and folder.parent.name.startswith(("sub-", "ses-"))
+                and not {"sourcedata", "code"}.intersection(folder.relative_to(src).parts)
+                and folder.with_name("susi").exists()):
+            raise FileExistsError(f"Both angio and susi exist: {folder.parent}")
     files = sorted(p for p in src.rglob("*") if p.is_file())
     chunk_base_x = _chunk_base_x([p for p in files if _is_nifti(p)], src)
     niftis: list[tuple[Path, Path]] = []

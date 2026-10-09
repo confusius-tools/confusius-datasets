@@ -3,9 +3,10 @@
 Stage the dataset from the Landemard *et al.* (2026) article "Brainwide blood
 volume reflects opposing neural populations" for release on S3.
 
-The dataset is already published in fUSI-BIDS, so no conversion is required.
-This recipe copies the local BIDS tree unchanged into a versioned release folder;
-it does not upload or generate an index.
+This recipe copies the local BIDS tree into a versioned release folder, renames
+legacy `angio/` datatype folders to `susi/`, and updates scan-table and JSON path
+references. Images and source-only files are unchanged; it does not upload or
+generate an index.
 
 ## References
 
@@ -16,7 +17,7 @@ it does not upload or generate an index.
 
 ## Usage
 
-Stage an existing BIDS tree without conversion (from the repository root):
+Stage an existing BIDS tree (from the repository root):
 
 ```bash
 just landemard-2026 /path/to/landemard_2026_dataset

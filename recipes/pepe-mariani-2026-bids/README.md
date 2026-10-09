@@ -39,7 +39,7 @@ modified.
 ## Outputs
 
 - Raw fUSI: `sub-*/ses-*/fusi/*_pwd.nii.gz` (+ JSON sidecars).
-- Angiography: `sub-*/ses-*/angio/*_pwd.nii.gz`.
+- Angiography: `sub-*/ses-*/susi/*_pwd.nii.gz`.
 - Derivatives: `derivatives/[registered|preprocessed|Params]/...`.
 - Dataset tables: `participants.tsv/json`, `sub-*/sub-*_sessions.tsv`,
   `sub-*/ses-*/*_scans.tsv`.

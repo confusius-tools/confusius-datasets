@@ -8,11 +8,11 @@ default:
 nunez-elizalde-2022 src *args:
     src="$1"; shift; uv run --locked --project recipes/nunez-elizalde-2022-bids nunez-convert --src "$src" "$@"
 
-# Stage the existing Landemard BIDS tree without conversion.
+# Stage Landemard BIDS data and update legacy datatype paths.
 landemard-2026 src *args:
     uv run --locked --project recipes/landemard-2026-bids python recipes/landemard-2026-bids/main.py "$@"
 
-# Download the complete Khallaf fUSI archive from Edmond.
+# Download Khallaf from Edmond and update legacy datatype paths.
 khallaf-2026 *args:
     uv run --locked --project recipes/khallaf-2026-bids python recipes/khallaf-2026-bids/main.py "$@"
 

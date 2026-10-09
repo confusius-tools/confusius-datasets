@@ -464,7 +464,7 @@ def _session_label(date: str) -> str:
 def _angio_output_path(out_dir: Path, subject: str, date: str) -> Path:
     ses_label = _session_label(date)
     filename = f"sub-{subject}_ses-{ses_label}_pwd.nii.gz"
-    return out_dir / f"sub-{subject}" / f"ses-{ses_label}" / "angio" / filename
+    return out_dir / f"sub-{subject}" / f"ses-{ses_label}" / "susi" / filename
 
 
 def _find_angio_source(metadata: SessionMetadata) -> Path | None:

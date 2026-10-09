@@ -2,13 +2,15 @@
 
 Two phases:
 
-1. Copy every file under ``src`` to the same relative path under ``out``.
+1. Copy files under ``src`` to ``out``, updating legacy datatype paths and references.
 2. Re-open every ``.nii`` / ``.nii.gz`` at ``out`` and apply the fUSI
    axis/coordinate transform in place.
 """
 
 from __future__ import annotations
 
+import csv
+import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,8 +53,12 @@ def _discover(src: Path) -> list[Path]:
 
 
 def _rewrite_path(rel: Path) -> Path:
-    """Rewrite BIDS datatype ``fus`` -> ``fusi`` in folder and suffix."""
-    parts = ["fusi" if p == "fus" else p for p in rel.parts]
+    """Update legacy datatype folders and the ``_fus`` suffix."""
+    if rel.parts and rel.parts[0] in ("sourcedata", "code"):
+        return rel
+    parts = ["susi" if p == "angio" and
+             (i == 0 or rel.parts[i - 1].startswith(("sub-", "ses-"))) else
+             "fusi" if p == "fus" else p for i, p in enumerate(rel.parts)]
     name = parts[-1]
     dot = name.find(".")
     stem = name if dot == -1 else name[:dot]
@@ -61,6 +67,16 @@ def _rewrite_path(rel: Path) -> Path:
         stem = stem[:-4] + "_fusi"
     parts[-1] = stem + exts
     return Path(*parts)
+
+
+def _rewrite_references(payload: dict) -> dict:
+    for key in ("IntendedFor", "Sources", "RawSources"):
+        value = payload.get(key)
+        if isinstance(value, str):
+            payload[key] = _rewrite_path(Path(value)).as_posix()
+        elif isinstance(value, list):
+            payload[key] = [_rewrite_path(Path(path)).as_posix() for path in value]
+    return payload
 
 
 def _transform(pwd):
@@ -138,6 +154,11 @@ def convert(
     if not src.is_dir():
         raise NotADirectoryError(f"src is not a directory: {src}")
 
+    for folder in src.rglob("angio"):
+        if (folder.is_dir() and folder.parent.name.startswith(("sub-", "ses-"))
+                and not {"sourcedata", "code"}.intersection(folder.relative_to(src).parts)
+                and folder.with_name("susi").exists()):
+            raise FileExistsError(f"Both angio and susi exist: {folder.parent}")
     files = _discover(src)
     planned = len(files)
 
@@ -177,7 +198,23 @@ def convert(
                 continue
 
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, dest)
+            if rel.parts[0] in ("sourcedata", "code"):
+                shutil.copy2(path, dest)
+            elif path.name.endswith("_scans.tsv"):
+                with path.open(newline="") as source:
+                    rows = list(csv.reader(source, delimiter="\t"))
+                filename_column = rows[0].index("filename")
+                for row in rows[1:]:
+                    row[filename_column] = _rewrite_path(Path(row[filename_column])).as_posix()
+                with dest.open("w", newline="") as output:
+                    csv.writer(output, delimiter="\t", lineterminator="\n").writerows(rows)
+                shutil.copystat(path, dest)
+            elif path.suffix == ".json" and "angio/" in path.read_text():
+                payload = json.loads(path.read_text(), object_hook=_rewrite_references)
+                dest.write_text(json.dumps(payload, indent=2) + "\n")
+                shutil.copystat(path, dest)
+            else:
+                shutil.copy2(path, dest)
             copied += 1
             if _is_nifti(dest):
                 nifti_dests.append(dest)

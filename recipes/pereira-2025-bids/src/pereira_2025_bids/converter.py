@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,13 +39,29 @@ def _is_nifti(path: Path) -> bool:
 
 
 def _dest_rel(rel: Path) -> Path:
+    if rel.parts and rel.parts[0] in ("sourcedata", "code"):
+        return rel
+    rel = Path(*("susi" if p == "angio" and
+                 (i == 0 or rel.parts[i - 1].startswith(("sub-", "ses-"))) else p
+                 for i, p in enumerate(rel.parts)))
     if (
         len(rel.parts) == 3
         and rel.parts[0].startswith("sub-")
         and rel.parts[1].startswith("ses-")
+        and not rel.name.endswith(("_scans.tsv", "_scans.json"))
     ):
         return Path(rel.parts[0], rel.parts[1], "fusi", rel.parts[2])
     return rel
+
+
+def _rewrite_references(payload: dict) -> dict:
+    for key in ("IntendedFor", "Sources", "RawSources"):
+        value = payload.get(key)
+        if isinstance(value, str):
+            payload[key] = _dest_rel(Path(value)).as_posix()
+        elif isinstance(value, list):
+            payload[key] = [_dest_rel(Path(path)).as_posix() for path in value]
+    return payload
 
 
 def _permutation(order: list[int]) -> np.ndarray:
@@ -101,6 +119,11 @@ def convert(
     if not src.is_dir():
         raise NotADirectoryError(src)
 
+    for folder in src.rglob("angio"):
+        if (folder.is_dir() and folder.parent.name.startswith(("sub-", "ses-"))
+                and not {"sourcedata", "code"}.intersection(folder.relative_to(src).parts)
+                and folder.with_name("susi").exists()):
+            raise FileExistsError(f"Both angio and susi exist: {folder.parent}")
     files = sorted(p for p in src.rglob("*") if p.is_file())
     niftis: list[tuple[Path, Path]] = []
     copied = skipped = 0
@@ -129,7 +152,24 @@ def convert(
             copied += 1
             if not dry_run:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(path, dest)
+                if rel.parts[0] in ("sourcedata", "code"):
+                    shutil.copy2(path, dest)
+                elif path.name.endswith("_scans.tsv"):
+                    with path.open(newline="") as source:
+                        rows = list(csv.reader(source, delimiter="\t"))
+                    filename_column = rows[0].index("filename")
+                    for row in rows[1:]:
+                        filename = row[filename_column]
+                        row[filename_column] = _dest_rel(Path(filename)).as_posix()
+                    with dest.open("w", newline="") as output:
+                        csv.writer(output, delimiter="\t", lineterminator="\n").writerows(rows)
+                    shutil.copystat(path, dest)
+                elif path.suffix == ".json" and "angio/" in path.read_text():
+                    payload = json.loads(path.read_text(), object_hook=_rewrite_references)
+                    dest.write_text(json.dumps(payload, indent=2) + "\n")
+                    shutil.copystat(path, dest)
+                else:
+                    shutil.copy2(path, dest)
             else:
                 CONSOLE.log(f"[dim]dry-run copy:[/] {rel} -> {dest.relative_to(out)}")
             progress.advance(task)

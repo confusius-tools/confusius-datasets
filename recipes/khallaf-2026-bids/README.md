@@ -1,8 +1,9 @@
-# Khallaf 2026 fUSI-BIDS download
+# Khallaf 2026 fUSI-BIDS conversion
 
 Download and unpack the complete naked mole-rat fUSI archive from Edmond,
-including all derivatives and original Iconeus acquisitions. No conversion,
-filtering, or ConfUSIus dependency.
+including all derivatives and original Iconeus acquisitions. Rename legacy
+`angio/` datatype folders to `susi/` and update scan-table and JSON path references.
+No image conversion, filtering, or ConfUSIus dependency; source-only files stay unchanged.
 
 ## Usage
 
@@ -26,9 +27,9 @@ datasets are never overwritten.
 
 `curl` retries and resumes interrupted downloads. Python's standard library
 extracts the ZIP into a temporary directory, checks ZIP member CRCs during
-extraction, and rejects unsafe paths. The completed dataset is then renamed into
-place, and the downloaded ZIP is deleted. Failed extraction retains the ZIP for
-retry. Allow space for both the approximately 19.5 GB archive and its extracted
+extraction, and rejects unsafe paths. Datatype folders and references are updated
+in the temporary tree before the completed dataset is renamed into place and the
+ZIP is deleted. Failed extraction or conversion retains the ZIP for retry. Allow space for both the approximately 19.5 GB archive and its extracted
 contents. Nested archives are kept as published; this recipe does not upload.
 
 ## Source and license

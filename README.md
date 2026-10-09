@@ -33,7 +33,7 @@ repository root:
 just                                            # List recipes.
 just pereira-2025 /path/to/source               # Prepare recordings.
 just pereira-2025 /path/to/source --dry-run     # Preview conversion.
-just khallaf-2026                               # Download from Edmond.
+just khallaf-2026                               # Download and update datatype paths.
 just template-huang-2025                        # Export a bundled template.
 ```
 
@@ -44,7 +44,8 @@ Outputs go to:
 
 The version comes from each recipe's `pyproject.toml`. Recording converters and
 staging scripts accept `--out` to override the destination. Landemard copies an
-existing BIDS tree unchanged into a fresh destination.
+existing BIDS tree into a fresh destination. Landemard and Khallaf update legacy
+`angio/` datatype folders to `susi/`, including scan-table and JSON references.
 
 ## 2. Generate a release manifest
 
