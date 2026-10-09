@@ -6,6 +6,7 @@ import json
 import math
 import re
 import shutil
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -24,6 +25,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Column
 from scipy.io import loadmat
 
 from .config import STATIC_METADATA, TASK_DESCRIPTIONS
@@ -1219,7 +1221,15 @@ def _convert_run(
         ) from exc
 
     plan.output_nifti.parent.mkdir(parents=True, exist_ok=True)
-    cf.save(da, plan.output_nifti)
+    with warnings.catch_warnings():
+        # Irregular acquisition times are preserved in the VolumeTiming sidecar.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Coordinate 'time' has non-uniform sampling\. Exact timings are "
+            r"saved in the JSON sidecar as VolumeTiming,",
+            category=UserWarning,
+        )
+        cf.save(da, plan.output_nifti)
 
     events_tsv, events_json = _event_paths(plan.output_nifti)
     events, event_info = _load_events_for_run(
@@ -1328,8 +1338,11 @@ def convert(
 
     progress = Progress(
         SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
+        TextColumn(
+            "[progress.description]{task.description}",
+            table_column=Column(max_width=32, no_wrap=True, overflow="ellipsis"),
+        ),
+        BarColumn(bar_width=None),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),

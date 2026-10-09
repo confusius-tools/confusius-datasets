@@ -19,6 +19,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Column
 
 CONSOLE = Console()
 FUSI_REPETITION_TIME = 2.4
@@ -197,8 +198,11 @@ def _copy_metadata(src: Path, dest: Path, rel: Path) -> None:
 def _progress_columns():
     return [
         SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
+        TextColumn(
+            "[progress.description]{task.description}",
+            table_column=Column(max_width=32, no_wrap=True, overflow="ellipsis"),
+        ),
+        BarColumn(bar_width=None),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),

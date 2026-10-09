@@ -17,6 +17,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Column
 
 CONSOLE = Console()
 
@@ -81,8 +82,11 @@ def _convert_nifti_2d(src: Path, dest: Path) -> None:
 def _progress_columns():
     return [
         SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
+        TextColumn(
+            "[progress.description]{task.description}",
+            table_column=Column(max_width=32, no_wrap=True, overflow="ellipsis"),
+        ),
+        BarColumn(bar_width=None),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),

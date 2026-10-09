@@ -25,6 +25,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.table import Column
 
 __all__ = ["ConversionSummary", "convert"]
 
@@ -113,8 +114,11 @@ def _transform(pwd):
 def _progress_columns():
     return [
         SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
+        TextColumn(
+            "[progress.description]{task.description}",
+            table_column=Column(max_width=32, no_wrap=True, overflow="ellipsis"),
+        ),
+        BarColumn(bar_width=None),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),
