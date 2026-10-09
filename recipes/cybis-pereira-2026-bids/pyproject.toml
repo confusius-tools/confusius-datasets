@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "Convert Cybis Pereira et al. 2026 fUSI recordings to fUSI-BIDS"
 requires-python = ">=3.13"
 dependencies = [
-    "confusius",
+    "confusius>=0.8.0.dev0",
     "rich>=14.0.0",
 ]
 
@@ -22,4 +22,4 @@ dev = [
 ]
 
 [tool.uv.sources]
-confusius = { git = "https://github.com/confusius-tools/confusius.git" }
+confusius = { git = "https://github.com/confusius-tools/confusius.git", branch = "main" }

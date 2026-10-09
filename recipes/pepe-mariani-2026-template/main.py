@@ -88,8 +88,7 @@ def build_template_to_atlas_affine(fusi: xr.DataArray) -> np.ndarray:
     Returns
     -------
     numpy.ndarray
-        Pull affine mapping template physical coordinates to atlas physical
-        coordinates.
+        Affine mapping native template voxel indices to atlas world coordinates.
     """
     transform = sitk.ReadTransform(str(COMPOSITE_PATH))
     t_lps = composite_to_4x4(transform)
@@ -106,7 +105,9 @@ def build_template_to_atlas_affine(fusi: xr.DataArray) -> np.ndarray:
         dtype=float,
     )
 
-    a_fusi = np.asarray(fusi.attrs["affines"]["physical_to_sform"])
+    a_fusi = (
+        fusi.attrs["affines"]["world_to_sform"] @ fusi.fusi.affine.voxel_to_world
+    )
     return r_reorient @ np.linalg.inv(A_ALLEN_PIRRAS) @ t_world @ a_fusi
 
 
@@ -116,75 +117,35 @@ def make_native_allen_oriented_template(
 ) -> xr.DataArray:
     """Convert the native template into a ConfUSIus-style coronal layout.
 
+    >>> source = cf.create_voxeldata(np.arange(24).reshape(4, 2, 3), dims=("k", "j", "i"), spacing=(1, 1, 1))
+    >>> result = make_native_allen_oriented_template(source, np.eye(4))
+    >>> np.array_equal(result, np.asarray(source).transpose(2, 1, 0))
+    True
+    >>> np.allclose(result.fusi.affine.voxel_to_world[:3, :3], np.eye(3)[::-1])
+    True
+
     Parameters
     ----------
     fusi : xarray.DataArray
         Published template loaded with ConfUSIus.
     template_to_atlas : numpy.ndarray
-        Pull affine mapping the native template physical space to BrainGlobe
-        atlas physical space.
+        Affine mapping native template voxel indices to BrainGlobe atlas world space.
 
     Returns
     -------
     xarray.DataArray
-        Reoriented template whose saved coordinates and `physical_to_sform`
-        reconstruct the full atlas transform after `cf.save` / `cf.load`.
+        Reoriented template carrying the full voxel-to-atlas transform.
     """
-    # Source file is stored on sagittal-like axes. For a ConfUSIus-style coronal layout
-    # we want z=AP, y=IS, x=LR, which corresponds to z<-old x, y<-old y, x<-old z.
-    linear_old_to_atlas = template_to_atlas[:3, :3]
-    new_to_old_linear = np.array(
-        [
-            [0, 0, 1],
-            [0, 1, 0],
-            [1, 0, 0],
-        ],
-        dtype=float,
-    )
-    linear_new_to_atlas = linear_old_to_atlas @ new_to_old_linear
-
-    # ConfUSIus stores the physical origin in the coordinate arrays and the residual
-    # orientation/shear in `physical_to_sform`.
-    origin_zyx = template_to_atlas[:3, 3]
-
-    affine = np.eye(4)
-    affine[:3, :3] = linear_new_to_atlas
-    affine[:3, 3] = (np.eye(3) - linear_new_to_atlas) @ origin_zyx
-
-    z_step = float(abs(fusi.coords["x"].values[1] - fusi.coords["x"].values[0]))
-    y_step = float(abs(fusi.coords["y"].values[1] - fusi.coords["y"].values[0]))
-    x_step = float(abs(fusi.coords["z"].values[1] - fusi.coords["z"].values[0]))
-
-    return xr.DataArray(
+    # Coronal voxel layout: k<-old i, j<-old j, i<-old k.
+    new_to_old = np.eye(4)
+    new_to_old[:3, :3] = [[0, 0, 1], [0, 1, 0], [1, 0, 0]]
+    return cf.create_voxeldata(
         np.asarray(fusi).transpose(2, 1, 0),
-        dims=("z", "y", "x"),
-        coords={
-            "z": xr.DataArray(
-                origin_zyx[0] + z_step * np.arange(fusi.shape[2]),
-                dims=["z"],
-                attrs={
-                    "units": fusi.coords["x"].attrs.get("units", "mm"),
-                    "voxdim": z_step,
-                },
-            ),
-            "y": xr.DataArray(
-                origin_zyx[1] + y_step * np.arange(fusi.shape[1]),
-                dims=["y"],
-                attrs={
-                    "units": fusi.coords["y"].attrs.get("units", "mm"),
-                    "voxdim": y_step,
-                },
-            ),
-            "x": xr.DataArray(
-                origin_zyx[2] + x_step * np.arange(fusi.shape[0]),
-                dims=["x"],
-                attrs={
-                    "units": fusi.coords["z"].attrs.get("units", "mm"),
-                    "voxdim": x_step,
-                },
-            ),
-        },
-        attrs={"affines": {"physical_to_sform": affine}, "sform_code": 1},
+        dims=("k", "j", "i"),
+        voxel_to_world=template_to_atlas @ new_to_old,
+        units=fusi.fusi.affine.units,
+        # The registration contains shear, which only sform can encode exactly.
+        attrs={"sform_code": 1, "qform_code": 0},
         name="fusi_template_native_allen_oriented",
     )
 

@@ -89,51 +89,40 @@ def _rewrite_references(payload: dict) -> dict:
 
 
 def _transform(pwd):
+    """Permute voxels and preserve the source's distinct qform/sform scaling.
 
-    src_axes = ["z", "y", "x"]  # index order A_old's COLUMNS use
-    src_world = ["z", "y", "x"]  # world order A_old's ROWS use
-
-    # final voxel-axis order (columns of the new affine)
-    final_axes = [("y", False), ("z", True), ("x", False)]
-    # new world component <- (original component, coefficient)   [1e3 = m->mm, sign = negation]
-    world_map = {0: ("y", 1e3), 1: ("z", -1e3), 2: ("x", 1e3)}
-
-    P = np.eye(4)
-    P[:3] = 0
-    for col, (src, flip) in enumerate(final_axes):
-        row = src_axes.index(src)
-        P[row, col] = -1 if flip else 1
-
-    S = np.eye(4)
-    S[:3] = 0
-    for row, (src, coeff) in world_map.items():
-        S[row, src_world.index(src)] = coeff
-
-    if "affines" in pwd.attrs:
-        to_qform = pwd.affines.get("physical_to_qform", None)
-        if to_qform is not None:
-            pwd.attrs["affines"]["physical_to_qform"] = S @ to_qform @ P
-
-        to_sform = pwd.affines.get("physical_to_sform", None)
-        if to_sform is not None:
-            S[:3] /= 1000
-            pwd.attrs["affines"]["physical_to_sform"] = S @ to_sform @ P
-
-    if "time" in pwd.coords and "time" not in pwd.dims:
-        pwd = pwd.drop_vars("time")
-
-    dims = ("time", "y", "z", "x") if "time" in pwd.dims else ("y", "z", "x")
-    pwd = pwd.transpose(*dims).rename(y="z", z="y").isel(y=slice(None, None, -1))
-    for axis in ["x", "y", "z"]:
-        pwd.coords[axis].attrs["units"] = "mm"
-    pwd.coords["y"] = pwd.coords["y"] * -1
-    clutter_filters = pwd.attrs.get("clutter_filters", None)
-    if clutter_filters is not None:
-        clutter_filters = ["svd:remove_first_60_components"]
-        pwd.attrs["clutter_filters"] = clutter_filters
-
-    pwd, _ = pwd.fusi.affine.apply(pwd.affines["physical_to_qform"])
-    return pwd
+    >>> source = cf.create_voxeldata(np.arange(24).reshape(4, 2, 3), dims=("k", "j", "i"), spacing=(.001, .002, .003), origin=(0, 0, 0), attrs={"affines": {"world_to_qform": np.eye(4)}})
+    >>> transformed = _transform(source)
+    >>> np.array_equal(transformed, np.asarray(source).transpose(1, 0, 2)[:, ::-1, :])
+    True
+    """
+    permutation = np.eye(4)
+    permutation[:3, :3] = [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+    permutation[0, 3] = pwd.sizes["k"] - 1
+    world = np.eye(4)
+    world[:3, :3] = [[0, 1000, 0], [-1000, 0, 0], [0, 0, 1000]]
+    source_affines = pwd.attrs["affines"]
+    voxel_to_world = pwd.fusi.affine.voxel_to_world
+    qform = world @ source_affines["world_to_qform"] @ voxel_to_world @ permutation
+    affines = {"world_to_qform": np.eye(4)}
+    if "world_to_sform" in source_affines:
+        world[:3] /= 1000
+        sform = world @ source_affines["world_to_sform"] @ voxel_to_world @ permutation
+        affines["world_to_sform"] = sform @ np.linalg.inv(qform)
+    attrs = dict(pwd.attrs)
+    attrs["affines"] = affines
+    if attrs.get("clutter_filters") is not None:
+        attrs["clutter_filters"] = ["svd:remove_first_60_components"]
+    dims = ("time", "j", "k", "i") if "time" in pwd.dims else ("j", "k", "i")
+    data = np.asarray(pwd.transpose(*dims).isel(k=slice(None, None, -1)))
+    return cf.create_voxeldata(
+        data,
+        dims=("time", "k", "j", "i") if "time" in pwd.dims else ("k", "j", "i"),
+        time=pwd.coords["time"] if "time" in pwd.dims else None,
+        voxel_to_world=qform,
+        attrs=attrs,
+        name=pwd.name,
+    )
 
 
 def _progress_columns():
@@ -247,10 +236,6 @@ def convert(
                 pwd = cf.load(dest)
                 pwd = _transform(pwd)
                 cf.save(pwd, dest)
-                stem = dest.with_suffix("") if dest.suffix == ".gz" else dest
-                sidecar = stem.with_suffix(".json")
-                payload = json.loads(sidecar.read_text(), object_hook=_rewrite_references)
-                sidecar.write_text(json.dumps(payload, indent=2) + "\n")
                 converted += 1
                 progress.advance(task)
 

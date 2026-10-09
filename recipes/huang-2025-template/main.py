@@ -5,6 +5,7 @@ import warnings
 from pathlib import Path
 
 import confusius as cf
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent
 with (ROOT / "pyproject.toml").open("rb") as source:
@@ -17,7 +18,7 @@ OUTPUT_VASCULAR = OUTPUTS / "huang-2025-space-allen50_desc-vascular.nii.gz"
 
 
 def export_vascular(source_path: Path = SOURCE_VASCULAR) -> Path:
-    atlas = cf.atlas.Atlas.from_brainglobe("allen_mouse_50um")
+    atlas = cf.datasets.fetch_brainglobe_atlas("allen_mouse_50um")
 
     with warnings.catch_warnings():
         if source_path.resolve() == SOURCE_VASCULAR.resolve():
@@ -31,10 +32,14 @@ def export_vascular(source_path: Path = SOURCE_VASCULAR) -> Path:
     if "time" in template.dims:
         template = template.squeeze("time", drop=True)
 
-    transformed = (
-        template.rename({"x": "y", "y": "z", "z": "x"})
-        .transpose("z", "y", "x")
-        .assign_coords(atlas.reference.coords)
+    data = np.asarray(template).transpose(1, 2, 0)
+    reference = atlas["reference"]
+    if data.shape != reference.shape:
+        raise ValueError(f"Template shape {data.shape} differs from Allen grid {reference.shape}")
+    transformed = cf.create_voxeldata(
+        data, dims=("k", "j", "i"),
+        voxel_to_world=reference.fusi.affine.voxel_to_world,
+        units=reference.fusi.affine.units,
     )
 
     OUTPUTS.mkdir(parents=True, exist_ok=True)

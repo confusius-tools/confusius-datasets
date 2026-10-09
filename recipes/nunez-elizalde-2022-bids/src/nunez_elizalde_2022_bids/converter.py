@@ -27,6 +27,7 @@ from rich.progress import (
 )
 from rich.table import Column
 from scipy.io import loadmat
+from confusius.registration.affines import decompose_affine
 
 from .config import STATIC_METADATA, TASK_DESCRIPTIONS
 
@@ -240,8 +241,13 @@ def _load_reference_axes(reference_nifti: Path) -> tuple[np.ndarray, np.ndarray]
         ) from exc
 
     reference = cf.load(reference_nifti)
-    x_values = np.asarray(reference.coords["x"].values, dtype=float)
-    depth_values = np.asarray(reference.coords["z"].values, dtype=float)
+    # Preserve the source's axis-aligned acquisition grid, not its world rotation.
+    order = [2, 1, 0, 3]
+    origin, _, spacing, _ = decompose_affine(
+        reference.fusi.affine.voxel_to_world[np.ix_(order, order)]
+    )
+    x_values = origin[0] + spacing[0] * np.arange(reference.sizes["i"])
+    depth_values = origin[2] + spacing[2] * np.arange(reference.sizes["k"])
     return x_values, depth_values
 
 
@@ -461,32 +467,6 @@ def _session_label(date: str) -> str:
     return date.replace("-", "")
 
 
-def _update_bids_sidecar(nifti: Path, *, windows_in_seconds: bool = False) -> None:
-    # shortcut: normalize older ConfUSIus exports until recipes require issue #484's fix.
-    sidecar = nifti.with_suffix("").with_suffix(".json")
-    payload = json.loads(sidecar.read_text())
-    for old, new in {
-        "ProbeCentralFrequency": "ProbeCenterFrequency",
-        "probe_center_frequency": "ProbeCenterFrequency",
-        "transmit_voltage": "TransmitVoltage",
-        "UltrasoundTransmitFrequency": "TransmitFrequency",
-        "UltrasoundPulseRepetitionFrequency": "PulseRepetitionFrequency",
-        "ProbeVoltage": "TransmitVoltage",
-    }.items():
-        if old in payload:
-            payload[new] = payload.pop(old)
-    payload.pop("PowerDopplerIntegrationStride", None)
-    if windows_in_seconds:
-        # Use known recipe seconds, not version-dependent cf.save output units.
-        for key, attr in {
-            "ClutterFilterWindowDuration": "clutter_filter_window_duration",
-            "ClutterFilterWindowStride": "clutter_filter_window_stride",
-            "PowerDopplerIntegrationDuration": "power_doppler_integration_duration",
-        }.items():
-            payload[key] = STATIC_METADATA[attr] * 1000
-    sidecar.write_text(json.dumps(payload, indent=2) + "\n")
-
-
 def _angio_output_path(out_dir: Path, subject: str, date: str) -> Path:
     ses_label = _session_label(date)
     filename = f"sub-{subject}_ses-{ses_label}_pwd.nii.gz"
@@ -584,37 +564,33 @@ def _derivative_filename(subject: str, date: str, source_name: str) -> str:
 
 
 def _to_confusius_stack_convention(da: xr.DataArray) -> xr.DataArray:
-    if tuple(da.dims) != ("z", "y", "x"):
+    """Reorient depth-first stacks without changing voxel values.
+
+    >>> import confusius as cf
+    >>> data = np.arange(24).reshape(4, 2, 3)
+    >>> stack = cf.create_voxeldata(data, dims=("k", "j", "i"), spacing=(.1, .2, .3), origin=(0, 0, 0))
+    >>> np.array_equal(_to_confusius_stack_convention(stack), data.transpose(1, 0, 2))
+    True
+    """
+    if tuple(da.dims) != ("k", "j", "i") or da.sizes["k"] <= da.sizes["j"]:
         return da
 
-    if da.sizes["z"] <= da.sizes["y"]:
-        return da
+    import confusius as cf
 
-    data = np.asarray(da.data).transpose(1, 0, 2)
-    z_coord = xr.DataArray(
-        np.asarray(da.coords["y"].values),
-        dims=("z",),
-        attrs=dict(da.coords["y"].attrs),
-    )
-    y_coord = xr.DataArray(
-        np.asarray(da.coords["z"].values),
-        dims=("y",),
-        attrs=dict(da.coords["z"].attrs),
-    )
-    x_coord = xr.DataArray(
-        np.asarray(da.coords["x"].values),
-        dims=("x",),
-        attrs=dict(da.coords["x"].attrs),
+    order = [2, 1, 0, 3]
+    origin, _, spacing, _ = decompose_affine(
+        da.fusi.affine.voxel_to_world[np.ix_(order, order)]
     )
     attrs = dict(da.attrs)
     attrs.pop("affines", None)
     attrs.pop("qform_code", None)
     attrs.pop("sform_code", None)
-
-    return xr.DataArray(
-        data,
-        dims=("z", "y", "x"),
-        coords={"z": z_coord, "y": y_coord, "x": x_coord},
+    return cf.create_voxeldata(
+        np.asarray(da.data).transpose(1, 0, 2),
+        dims=("k", "j", "i"),
+        origin=origin[[1, 2, 0]],
+        spacing=np.abs(spacing[[1, 2, 0]]),
+        units=da.fusi.affine.units,
         attrs=attrs,
         name=da.name,
     )
@@ -639,21 +615,20 @@ def _save_conformed_nifti(
     da = cf.load(source)
     da_conformed = _to_confusius_stack_convention(da)
 
-    if z_positions_mm is not None and "z" in da_conformed.dims:
+    if z_positions_mm is not None and "k" in da_conformed.dims:
         z_positions = np.asarray(z_positions_mm, dtype=float).ravel()
-        if da_conformed.sizes["z"] == z_positions.size:
-            z_attrs = dict(da_conformed.coords["z"].attrs)
-            z_attrs["units"] = "mm"
-            z_step = _median_step(z_positions)
-            if z_step is not None:
-                z_attrs["voxdim"] = float(z_step)
-            da_conformed = da_conformed.assign_coords(
-                z=xr.DataArray(z_positions, dims=("z",), attrs=z_attrs)
+        if da_conformed.sizes["k"] == z_positions.size:
+            affine = da_conformed.fusi.affine.voxel_to_world.copy()
+            z_step = (
+                float(np.median(np.diff(z_positions))) if z_positions.size > 1
+                else da_conformed.fusi.spacing["k"]
             )
+            affine[0] = [z_step, 0, 0, z_positions[0]]
+            da_conformed = da_conformed.fusi.affine.set_voxel_to_world(affine, units="mm")
         elif require_z_match:
             raise ValueError(
                 "Cannot assign z positions: "
-                f"{source.name} has z size {da_conformed.sizes['z']}, "
+                f"{source.name} has stack size {da_conformed.sizes['k']}, "
                 f"but metadata has {z_positions.size} y-stack positions."
             )
 
@@ -662,7 +637,6 @@ def _save_conformed_nifti(
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     cf.save(da_conformed, destination)
-    _update_bids_sidecar(destination)
 
 
 def _write_derivatives_dataset_description(derivatives_root: Path) -> None:
@@ -1161,33 +1135,6 @@ def _convert_run(
         },
     )
 
-    spatial_coords = {
-        "z": xr.DataArray(
-            np.asarray([plan.slice_position_mm], dtype=float),
-            dims=("z",),
-            attrs={
-                "units": "mm",
-                "voxdim": float(slice_step) if slice_step is not None else 1.0,
-            },
-        ),
-        "y": xr.DataArray(
-            depth_values,
-            dims=("y",),
-            attrs={
-                "units": "mm",
-                "voxdim": float(depth_step) if depth_step is not None else 1.0,
-            },
-        ),
-        "x": xr.DataArray(
-            x_values,
-            dims=("x",),
-            attrs={
-                "units": "mm",
-                "voxdim": float(x_step) if x_step is not None else 1.0,
-            },
-        ),
-    }
-
     attrs = dict(STATIC_METADATA)
     attrs["task_name"] = plan.task
     attrs["task_description"] = plan.task_description
@@ -1203,14 +1150,6 @@ def _convert_run(
     if metadata.transmit_voltage_v is not None:
         attrs["transmit_voltage"] = metadata.transmit_voltage_v
 
-    da = xr.DataArray(
-        data[:, np.newaxis, :, :],
-        dims=("time", "z", "y", "x"),
-        coords={"time": time_coord, **spatial_coords},
-        attrs=attrs,
-        name="pwd",
-    )
-
     try:
         import confusius as cf
     except ImportError as exc:
@@ -1219,6 +1158,19 @@ def _convert_run(
             "or run with `uv run --with ../confusius ...`."
         ) from exc
 
+    da = cf.create_voxeldata(
+        data[:, np.newaxis, :, :],
+        dims=("time", "k", "j", "i"),
+        time=time_coord,
+        origin=(plan.slice_position_mm, depth_values[0], x_values[0]),
+        spacing=(
+            slice_step if slice_step is not None else 1.0,
+            depth_step if depth_step is not None else 1.0,
+            x_step if x_step is not None else 1.0,
+        ),
+        attrs=attrs,
+        name="pwd",
+    )
     plan.output_nifti.parent.mkdir(parents=True, exist_ok=True)
     with warnings.catch_warnings():
         # Irregular acquisition times are preserved in the VolumeTiming sidecar.
@@ -1229,7 +1181,6 @@ def _convert_run(
             category=UserWarning,
         )
         cf.save(da, plan.output_nifti)
-    _update_bids_sidecar(plan.output_nifti, windows_in_seconds=True)
 
     events_tsv, events_json = _event_paths(plan.output_nifti)
     events = _load_events_for_run(

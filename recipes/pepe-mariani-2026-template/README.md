@@ -53,16 +53,12 @@ Use it later with ConfUSIus:
 
 ```python
 import confusius as cf
-from confusius.atlas.atlas import Atlas
 
 template = cf.load(
     "../../publish/templates/pepe-mariani-2026-template/1.0.0/pepe-mariani-2026-fusi-template.nii.gz"
 )
-atlas = Atlas.from_brainglobe("allen_mouse_100um")
-resampled_atlas = atlas.resample_like(
-    template,
-    template.affines["physical_to_sform"],
-)
+atlas = cf.datasets.fetch_brainglobe_atlas("allen_mouse_100um")
+resampled_atlas = atlas.atlas.resample_like(template)
 ```
 
 ## Licensing

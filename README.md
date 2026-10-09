@@ -27,7 +27,10 @@ alongside the root metadata, then pass that directory to `just landemard-2026`.
 ## 1. Run recipes
 
 Install [uv](https://docs.astral.sh/uv/) and [just](https://just.systems/). From the
-repository root:
+repository root. Recipes that use ConfUSIus temporarily depend on its Git `main`
+branch until `0.8.0` is released. Their lockfiles pin the exact commit, and the
+`just` commands use `--locked` for reproducible conversions. After the release,
+switch those dependencies to `confusius>=0.8.0` and remove their Git source entries.
 
 ```bash
 just                                            # List recipes.

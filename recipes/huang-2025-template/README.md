@@ -27,8 +27,12 @@ This repository contains the input file required to build the exported template:
 
 ```python
 template = cf.load(...)
-atlas = cf.atlas.Atlas.from_brainglobe("allen_mouse_50um")
-template = template.rename({"x": "y", "y": "z", "z": "x"}).transpose("z", "y", "x").assign_coords(atlas.reference.coords)
+atlas = cf.datasets.fetch_brainglobe_atlas("allen_mouse_50um")
+template = cf.create_voxeldata(
+    template.values.transpose(1, 2, 0),
+    dims=("k", "j", "i"),
+    voxel_to_world=atlas["reference"].fusi.affine.voxel_to_world,
+)
 ```
 
 The bundled NIfTI has no orientation transform in its header. The exporter
@@ -55,10 +59,9 @@ Use it later with ConfUSIus:
 
 ```python
 import confusius as cf
-from confusius.atlas.atlas import Atlas
 
 template = cf.load("../../publish/templates/huang-2025-template/1.0.0/huang-2025-space-allen50_desc-vascular.nii.gz")
-atlas = Atlas.from_brainglobe("allen_mouse_50um")
+atlas = cf.datasets.fetch_brainglobe_atlas("allen_mouse_50um")
 ```
 
 ## Licensing
