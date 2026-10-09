@@ -149,6 +149,8 @@ def verify_files(root: Path, entries: dict, *, local: bool = False) -> None:
     ...         verify_files(root, entries)
     ...     except ValueError as error:
     ...         print(error)
+    Checking hashes [1/1]: data.bin
+    Checking hashes [1/1]: data.bin
     SHA-256 mismatch: data.bin
     File inventory differs: missing=[], extra=['extra']
     """
@@ -165,7 +167,8 @@ def verify_files(root: Path, entries: dict, *, local: bool = False) -> None:
             f"File inventory differs: missing={sorted(entries.keys() - files)}, "
             f"extra={sorted(files - entries.keys())}"
         )
-    for name, expected in entries.items():
+    for index, (name, expected) in enumerate(entries.items(), start=1):
+        print(f"Checking hashes [{index}/{len(entries)}]: {name}", flush=True)
         path = root / name
         if path.stat().st_size != expected["size"]:
             raise ValueError(f"Size mismatch: {name}")
@@ -178,8 +181,8 @@ def verify_files(root: Path, entries: dict, *, local: bool = False) -> None:
 def aws(*args: str) -> str:
     return subprocess.run(
         ["aws", "--region", "us-west-2", "--output", "json", *args],
-        check=True, capture_output=True, text=True,
-    ).stdout
+        check=True, capture_output=args[:2] != ("s3", "sync"), text=True,
+    ).stdout or ""
 
 
 def remote_exists(bucket: str, key: str) -> bool:
@@ -193,6 +196,7 @@ def remote_exists(bucket: str, key: str) -> bool:
 def publish(release: Path, *, upload: bool = False) -> None:
     destination = catalog_path(release)
     entries = read_manifest(release)
+    print("Checking local release files...", flush=True)
     verify_files(release, entries, local=True)
     manifest_path = release / "manifest.json"
     manifest_bytes = manifest_path.read_bytes()
@@ -201,7 +205,9 @@ def publish(release: Path, *, upload: bool = False) -> None:
     manifest_key = f"{prefix}/manifest.json"
     remote = f"s3://{bucket}/{prefix}/"
     published = remote_exists(bucket, manifest_key)
-    with TemporaryDirectory(prefix="confusius-publish-") as directory:
+    scratch = Path(__file__).resolve().parents[1] / "work" / "publish-tmp"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix="confusius-publish-", dir=scratch) as directory:
         temporary = Path(directory)
         downloaded_manifest = temporary / "manifest.json"
         if published:
@@ -214,26 +220,30 @@ def publish(release: Path, *, upload: bool = False) -> None:
             print("Already published: files will not be overwritten; verify and promote only.")
         if not upload:
             if not published:
-                print(aws(
+                aws(
                     "s3", "sync", str(release) + "/", remote,
                     "--exclude", "manifest.json", "--dryrun",
-                ), end="")
+                )
             print("Preview only. Use --upload to verify and publish the manifest and catalog.")
             return
         # shortcut: one publisher at a time; add locking before concurrent publication.
         if not published:
-            print(aws(
+            print("Uploading release files...", flush=True)
+            aws(
                 "s3", "sync", str(release) + "/", remote, "--exclude", "manifest.json",
-            ), end="")
+            )
         downloaded = temporary / "files"
         downloaded.mkdir()
-        print(aws(
+        print(f"Downloading release files for anonymous verification to {downloaded}...", flush=True)
+        aws(
             "s3", "sync", remote, str(downloaded) + "/",
             "--exclude", "manifest.json", "--no-sign-request",
-        ), end="")
+        )
+        print("Checking downloaded release files...", flush=True)
         verify_files(downloaded, entries)
-        print("Release files verified through anonymous download.")
+        print("Release files verified through anonymous download.", flush=True)
         if not published:
+            print("Publishing and verifying the manifest...", flush=True)
             aws(
                 "s3api", "put-object", "--bucket", bucket, "--key", manifest_key,
                 "--body", str(manifest_path), "--content-type", "application/json",
@@ -245,6 +255,7 @@ def publish(release: Path, *, upload: bool = False) -> None:
             )
             if downloaded_manifest.read_bytes() != manifest_bytes:
                 raise ValueError("Uploaded manifest differs; catalog was not promoted")
+        print("Updating and verifying the latest-version catalog...", flush=True)
         downloaded_catalog = temporary / "last_versions.conf"
         if remote_exists(bucket, "last_versions.conf"):
             aws(
@@ -286,7 +297,7 @@ def main() -> None:
         else:
             (manifest if args.command == "manifest" else latest)(release)
     except subprocess.CalledProcessError as error:
-        parser.exit(1, f"AWS CLI failed: {error.stderr.strip()}\n")
+        parser.exit(1, f"AWS CLI failed: {(error.stderr or f'exit status {error.returncode}').strip()}\n")
     except (OSError, ValueError, configparser.Error) as error:
         parser.exit(1, f"Error: {error}\n")
 

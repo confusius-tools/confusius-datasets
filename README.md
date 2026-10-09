@@ -97,14 +97,16 @@ The shared publishing command targets this bucket in US West (Oregon), `us-west-
 and preserves the release's path under `publish/`. Review the preview, then upload:
 
 ```bash
-just publish "$RELEASE"             # Preview only; no remote or local writes.
+just publish "$RELEASE"             # Preview only; no uploads or catalog changes.
 just publish "$RELEASE" --upload    # Upload, verify, and mark this version latest.
 ```
 
 The command checks that local files match their manifest before contacting S3.
-It uploads release files, downloads them anonymously into a temporary directory,
-and checks the exact inventory, sizes, and SHA-256 hashes. Allow enough temporary
-disk space for another copy of the release; verification downloads every file.
+It uploads release files, downloads them anonymously into a temporary directory
+under the repository's `work/publish-tmp/` (not the system `/tmp`), and checks the
+exact inventory, sizes, and SHA-256 hashes. The temporary copy is cleaned up on
+success or failure. Allow enough disk space for another copy of the release;
+verification downloads every file.
 Only after verification does it upload and anonymously verify the manifest.
 
 Finally it fetches the current remote `last_versions.conf`, preserves its other
