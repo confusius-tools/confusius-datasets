@@ -35,3 +35,11 @@ template-pepe-mariani-2026:
 # Export the Huang template from its bundled input.
 template-huang-2025:
     uv run --locked --project recipes/huang-2025-template python recipes/huang-2025-template/main.py
+
+# Inventory a completed release and write its SHA-256 manifest.
+manifest release:
+    uv run --no-project --python 3.13 python scripts/releases.py manifest "$1"
+
+# Mark a release latest only after its upload has been verified.
+latest release:
+    uv run --no-project --python 3.13 python scripts/releases.py latest "$1"

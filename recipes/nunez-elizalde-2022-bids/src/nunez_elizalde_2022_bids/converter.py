@@ -450,7 +450,6 @@ def _build_dataset_metadata(out_dir: Path, subjects: list[str]) -> None:
     (out_dir / "README").write_text(readme_text)
 
     bidsignore_text = (
-        "dataset_index.json\n"
         "code/**\n"
         "sourcedata/**\n"
         "derivatives/**\n"
