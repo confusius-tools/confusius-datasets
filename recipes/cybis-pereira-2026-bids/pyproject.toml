@@ -1,17 +1,14 @@
 [project]
 name = "cybis-pereira-2026-bids"
 version = "1.0.0"
-description = "Upload Cybis Pereira et al. 2026 fUSI-BIDS dataset to OSF"
+description = "Convert Cybis Pereira et al. 2026 fUSI recordings to fUSI-BIDS"
 requires-python = ">=3.13"
 dependencies = [
     "confusius",
-    "osfclient>=0.0.5",
-    "python-dotenv>=1.0.0",
     "rich>=14.0.0",
 ]
 
 [project.scripts]
-cybis-upload = "cybis_pereira_2026_bids.cli:main"
 cybis-convert = "cybis_pereira_2026_bids.cli:convert_main"
 
 [build-system]

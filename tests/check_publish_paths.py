@@ -18,6 +18,9 @@ with TemporaryDirectory() as directory:
         if not (recipe / "pyproject.toml").exists():
             continue
         metadata = tomllib.loads((recipe / "pyproject.toml").read_text())["project"]
+        assert not any(name.endswith("-upload") for name in metadata.get("scripts", {}))
+        assert not any(dep.startswith(("osfclient", "python-dotenv")) for dep in metadata.get("dependencies", []))
+        assert not list(recipe.glob("src/*/upload.py"))
         assert metadata["version"] == "1.0.0"
         lock = tomllib.loads((recipe / "uv.lock").read_text())
         assert next(p for p in lock["package"] if p["name"] == metadata["name"])["version"] == "1.0.0"

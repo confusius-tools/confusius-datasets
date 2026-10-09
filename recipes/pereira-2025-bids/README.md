@@ -15,7 +15,7 @@ NIfTI-axis changes needed for fUSI-BIDS and ConfUSIus-compatible streaming:
 ## References
 
 - Original dataset (Zenodo): [doi:10.5281/zenodo.15194839](https://doi.org/10.5281/zenodo.15194839)
-- Re-exported BIDS dataset (OSF): [osf.io/pqa65](https://osf.io/pqa65/)
+- Historical BIDS mirror (OSF): [osf.io/pqa65](https://osf.io/pqa65/)
 - Paper: [doi:10.1016/j.ebiom.2025.105777](https://doi.org/10.1016/j.ebiom.2025.105777)
 - ConfUSIus convention: [confusius.tools](https://confusius.tools)
 
@@ -24,8 +24,6 @@ NIfTI-axis changes needed for fUSI-BIDS and ConfUSIus-compatible streaming:
 - Raw fUSI: `sub-*/ses-*/fusi/*_pwd.nii.gz` (+ JSON sidecars).
 - Events: `task-stim_events.tsv`.
 - Dataset tables: `participants.tsv/json`, `sub-*/sub-*_sessions.tsv`.
-- Dataset index: `dataset_index.json` at the BIDS root, mapping each
-  BIDS-relative path to its OSF file id, size, and MD5 checksum.
 
 All NIfTI files are written in ConfUSIus convention (`[time]`, `z` stacking,
 `y` depth, `x` lateral).
@@ -43,17 +41,8 @@ uv run pereira-convert --src /path/to/source --out /path/to/output_bids --dry-ru
 uv run pereira-convert --src /path/to/source --out /path/to/output_bids
 ```
 
-Sync the new tree to OSF (uploads new and changed files, skips unchanged ones
-by MD5) and maintain `dataset_index.json`:
-
-```bash
-export OSF_TOKEN=...
-export OSF_PROJECT=pqa65 
-uv run pereira-upload --bids-dir /path/to/output_bids
-uv run pereira-upload --index-only           # rebuild and upload only the index
-```
-
-Useful options: `--overwrite` (convert); `--index-only` (upload).
+Useful option: `--overwrite`. See the [root README](../../README.md) for release
+validation and S3 publication; this recipe does not upload or generate an index.
 
 ## Licensing
 

@@ -10,7 +10,7 @@ mice. This converter currently only exports the fUSI-related content.
 ## References
 
 - Original dataset (Figshare): [doi:10.6084/m9.figshare.19316228](https://doi.org/10.6084/m9.figshare.19316228)
-- Converted BIDS dataset (OSF): [osf.io/43skw](https://osf.io/43skw/overview)
+- Historical BIDS mirror (OSF): [osf.io/43skw](https://osf.io/43skw/overview)
 - Paper: [doi:10.1016/j.neuron.2022.02.012](https://doi.org/10.1016/j.neuron.2022.02.012)
 - Original analysis code: [github.com/anwarnunez/fusi](https://github.com/anwarnunez/fusi)
 - ConfUSIus package used for conversion: [confusius.tools](https://confusius.tools)
@@ -39,7 +39,9 @@ uv run nunez-convert --src /path/to/Subjects --out /path/to/output_bids --dry-ru
 uv run nunez-convert --src /path/to/Subjects --out /path/to/output_bids
 ```
 
-Useful options: `--subjects`, `--overwrite`.
+Useful options: `--subjects`, `--overwrite`. See the [root README](../../README.md)
+for release validation and S3 publication; this recipe does not upload or generate
+an index.
 
 Stimulus events are built with `cortexlab-fusi-utils` from each run's `Timeline.mat` and
 the bundled `Protocol.mat` files provided by the authors (not in the original dataset).

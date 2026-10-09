@@ -8,7 +8,9 @@
 **/*.py[cod]
 **/.pytest_cache/
 **/.ruff_cache/
+**/build/
 **/dist/
+**/wheels/
 **/*.egg-info/
 
 # Credentials and local configuration.

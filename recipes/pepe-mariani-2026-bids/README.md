@@ -31,7 +31,7 @@ modified.
 ## References
 
 - Original dataset (Zenodo): [doi:10.5281/zenodo.20070510](https://doi.org/10.5281/zenodo.20070510)
-- Re-exported BIDS dataset (OSF): [osf.io/7yhdc](https://osf.io/7yhdc/)
+- Historical BIDS mirror (OSF): [osf.io/7yhdc](https://osf.io/7yhdc/)
 - Paper: [doi:10.64898/2026.02.05.704055](https://doi.org/10.64898/2026.02.05.704055)
 - Original analysis code: [github.com/functional-neuroimaging/PepeMariani_2026](https://github.com/functional-neuroimaging/PepeMariani_2026)
 - ConfUSIus convention: [confusius.tools](https://confusius.tools)
@@ -43,8 +43,6 @@ modified.
 - Derivatives: `derivatives/[registered|preprocessed|Params]/...`.
 - Dataset tables: `participants.tsv/json`, `sub-*/sub-*_sessions.tsv`,
   `sub-*/ses-*/*_scans.tsv`.
-- Dataset index: `dataset_index.json` at the BIDS root, mapping each
-  BIDS-relative path to its OSF file id, size, and MD5 checksum.
 
 All NIfTI files are written in ConfUSIus convention (`[time]`, `z` stacking,
 `y` depth, `x` lateral).
@@ -62,17 +60,8 @@ uv run pepe-mariani-convert --src /path/to/source --out /path/to/output_bids --d
 uv run pepe-mariani-convert --src /path/to/source --out /path/to/output_bids
 ```
 
-Sync the new tree to OSF (uploads new and changed files, skips unchanged ones
-by MD5) and maintain `dataset_index.json`:
-
-```bash
-export OSF_TOKEN=...
-export OSF_PROJECT=7yhdc
-uv run pepe-mariani-upload --bids-dir /path/to/output_bids
-uv run pepe-mariani-upload --index-only      # rebuild and upload only the index
-```
-
-Useful options: `--overwrite` (convert); `--index-only` (upload).
+Useful option: `--overwrite`. See the [root README](../../README.md) for release
+validation and S3 publication; this recipe does not upload or generate an index.
 
 ## Licensing
 
