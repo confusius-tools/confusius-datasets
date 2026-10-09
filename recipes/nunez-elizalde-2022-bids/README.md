@@ -23,7 +23,6 @@ mice. This converter currently only exports the fUSI-related content.
   `derivatives/allenccf_align/structure_tree_safe_2017.csv` for atlas label colors.
 - Source-only files: `sourcedata/allenccf_align/.../*.hdf`.
 - Dataset tables: `participants.tsv/json`, `sub-*/sub-*_sessions.tsv/json`.
-- Conversion log: `code/conversion_manifest.tsv`.
 
 All NIfTI files are written in [ConfUSIus](https://confusius.tools) convention (`z`
 stacking, `y` depth, `x` lateral).

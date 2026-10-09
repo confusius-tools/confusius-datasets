@@ -5,7 +5,8 @@ published OpenfUSAnalyzer (OfUSA) mouse atlas template.
 
 ## Source dataset
 
-The input template used here comes from:
+The input vascular atlas is bundled with the
+[OfUSA software](https://github.com/YunAnGitHub/OpenfUS_Analyzer_OfUSA), described in:
 
 - Huang, Y.-A. *et al.* (2025). *OfUSA: OpenfUS Analyzer, a versatile open-source
   framework for the analysis and visualization of functional ultrasound imaging data

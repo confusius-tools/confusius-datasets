@@ -76,7 +76,6 @@ class ConversionSummary:
     converted_runs: int
     skipped_runs: int
     dry_run: bool
-    manifest_path: Path
 
 
 def _parse_number_list(raw: str) -> list[float]:
@@ -249,13 +248,13 @@ def _load_reference_axes(reference_nifti: Path) -> tuple[np.ndarray, np.ndarray]
 def _repair_times(
     times: np.ndarray,
     n_frames: int,
-) -> tuple[np.ndarray, int, str]:
+) -> tuple[np.ndarray, int]:
     n_times = times.size
     if n_times == n_frames:
-        return times, n_frames, "none"
+        return times, n_frames
 
     if n_times == n_frames - 1:
-        return times, n_times, "drop_last_frame"
+        return times, n_times
 
     raise ValueError(
         f"Unexpected mismatch between data frames ({n_frames}) and time samples ({n_times})."
@@ -933,14 +932,10 @@ def _load_events_for_run(
     plan: RunPlan,
     *,
     first_volume_time: float,
-) -> tuple[Any | None, dict[str, Any]]:
+) -> Any | None:
     timeline_path = _timeline_path_for_run(plan)
-    event_info: dict[str, Any] = {
-        "timeline_mat": str(timeline_path),
-        "protocol_mat": None,
-    }
     if not timeline_path.exists():
-        return None, event_info
+        return None
 
     try:
         from cortexlab_fusi_utils.io import load_stimulus_events
@@ -951,7 +946,6 @@ def _load_events_for_run(
         ) from exc
 
     protocol_path = _resolve_protocol_path_for_run(plan)
-    event_info["protocol_mat"] = str(protocol_path)
 
     events = load_stimulus_events(
         timeline_path,
@@ -985,7 +979,7 @@ def _load_events_for_run(
     ordered_columns.extend(
         column for column in events.columns if column not in ordered_columns
     )
-    return events.loc[:, ordered_columns], event_info
+    return events.loc[:, ordered_columns]
 
 
 def _event_paths(output_nifti: Path) -> tuple[Path, Path]:
@@ -1103,29 +1097,24 @@ def _convert_run(
     *,
     metadata: SessionMetadata,
     overwrite: bool,
-) -> dict[str, Any]:
-    result: dict[str, Any] = {
-        "subject": plan.subject,
-        "date": plan.date,
-        "block": plan.block,
-        "task": plan.task,
-        "slice_index": plan.slice_index,
-        "source_hdf": str(plan.source_hdf),
-        "output_nifti": str(plan.output_nifti),
-    }
-
+) -> bool:
     if plan.output_nifti.exists() and not overwrite:
-        result["status"] = "skipped_exists"
-        return result
+        return False
 
     with h5py.File(plan.source_hdf, "r") as h5:
         data = np.asarray(h5["data"], dtype=np.float32)
         times = np.asarray(h5["times"], dtype=np.float64)
 
-    repaired_times, n_target_frames, time_repair = _repair_times(
+    repaired_times, n_target_frames = _repair_times(
         times,
         n_frames=data.shape[0],
     )
+    if n_target_frames < data.shape[0]:
+        warnings.warn(
+            f"Dropping final frame without a timestamp: {plan.source_hdf}",
+            UserWarning,
+            stacklevel=2,
+        )
     data = data[:n_target_frames, :, :]
 
     x_reference, depth_reference = _load_reference_axes(plan.reference_nifti)
@@ -1232,16 +1221,9 @@ def _convert_run(
         cf.save(da, plan.output_nifti)
 
     events_tsv, events_json = _event_paths(plan.output_nifti)
-    events, event_info = _load_events_for_run(
+    events = _load_events_for_run(
         plan,
         first_volume_time=float(repaired_times[0]),
-    )
-    result.update(
-        {
-            key: value
-            for key, value in event_info.items()
-            if value is not None
-        }
     )
     if events is not None and not events.empty:
         _write_events_files(
@@ -1249,33 +1231,10 @@ def _convert_run(
             events_json,
             events,
         )
-        result["events_tsv"] = str(events_tsv)
-        result["n_events"] = int(len(events.index))
     else:
         events_tsv.unlink(missing_ok=True)
         events_json.unlink(missing_ok=True)
-        result["n_events"] = 0
-
-    result["status"] = "converted"
-    result["n_frames"] = int(data.shape[0])
-    result["n_times_original"] = int(times.size)
-    result["time_repair"] = time_repair
-    return result
-
-
-def _write_manifest(out_dir: Path, rows: list[dict[str, Any]]) -> Path:
-    manifest_dir = out_dir / "code"
-    manifest_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = manifest_dir / "conversion_manifest.tsv"
-    if not rows:
-        return manifest_path
-    fieldnames = sorted({key for row in rows for key in row})
-    with manifest_path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
-    return manifest_path
+    return True
 
 
 def convert(
@@ -1297,45 +1256,29 @@ def convert(
         src_resolved, out_resolved, subjects_filter
     )
 
-    out_resolved.mkdir(parents=True, exist_ok=True)
-
     if not plans:
         return ConversionSummary(
             planned_runs=0,
             converted_runs=0,
             skipped_runs=0,
             dry_run=dry_run,
-            manifest_path=out_resolved / "code" / "conversion_manifest.tsv",
         )
 
-    _write_bids_tabular_metadata(out_resolved, plans)
-
-    rows: list[dict[str, Any]] = []
     if dry_run:
         for plan in plans:
-            rows.append(
-                {
-                    "status": "planned",
-                    "subject": plan.subject,
-                    "date": plan.date,
-                    "block": plan.block,
-                    "task": plan.task,
-                    "slice_index": plan.slice_index,
-                    "source_hdf": str(plan.source_hdf),
-                    "output_nifti": str(plan.output_nifti),
-                }
-            )
-        manifest_path = _write_manifest(out_resolved, rows)
+            print(f"Plan: {plan.source_hdf} -> {plan.output_nifti}")
         return ConversionSummary(
             planned_runs=len(plans),
             converted_runs=0,
             skipped_runs=0,
             dry_run=True,
-            manifest_path=manifest_path,
         )
 
+    out_resolved.mkdir(parents=True, exist_ok=True)
+    _write_bids_tabular_metadata(out_resolved, plans)
     _copy_angio_and_derivatives(out_resolved, plans, session_metadata)
 
+    converted = 0
     progress = Progress(
         SpinnerColumn(),
         TextColumn(
@@ -1358,23 +1301,19 @@ def convert(
                 ),
             )
             metadata = session_metadata[(plan.subject, plan.date)]
-            row = _convert_run(
+            converted += _convert_run(
                 plan,
                 metadata=metadata,
                 overwrite=overwrite,
             )
-            rows.append(row)
             progress.advance(task_id)
 
-    manifest_path = _write_manifest(out_resolved, rows)
-    converted = sum(1 for row in rows if row.get("status") == "converted")
-    skipped = sum(1 for row in rows if row.get("status") == "skipped_exists")
+    skipped = len(plans) - converted
     return ConversionSummary(
         planned_runs=len(plans),
         converted_runs=converted,
         skipped_runs=skipped,
         dry_run=False,
-        manifest_path=manifest_path,
     )
 
 

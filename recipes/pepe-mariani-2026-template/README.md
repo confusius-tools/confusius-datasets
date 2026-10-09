@@ -12,7 +12,8 @@ The input template used here comes from the dataset associated with:
   embedding of the mouse functional connectome revealed by functional
   ultrasound imaging (fUSI).* DOI: `10.64898/2026.02.05.704055`.
 
-The dataset is available on Zenodo at DOI `10.5281/zenodo.18486493`.
+The dataset is available on [Zenodo (10.5281/zenodo.18486493)](https://zenodo.org/records/18486493).
+The template is included in the [source ZIP](https://zenodo.org/api/records/18486493/files/2026-02-03_PepeMariani_fUSI-anaesthetised.zip/content).
 
 The published dataset is released under the Creative Commons Attribution 4.0
 International License (CC BY 4.0). The template exported by this project is derived

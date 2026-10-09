@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Plan conversion and write a manifest without generating NIfTI files.",
+        help="List planned conversions without writing files.",
     )
     return parser
 
@@ -63,10 +63,9 @@ def main() -> None:
 
     if summary.dry_run:
         print(f"Dry-run complete: {summary.planned_runs} runs planned.")
-        print(f"Manifest: {summary.manifest_path}")
         return
 
     print(
         f"Conversion complete: {summary.converted_runs} converted, "
-        f"{summary.skipped_runs} skipped. Manifest: {summary.manifest_path}"
+        f"{summary.skipped_runs} skipped."
     )

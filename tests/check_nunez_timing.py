@@ -1,6 +1,8 @@
 """Run in the Nunez recipe environment; convert one synthetic irregular run."""
 
 import json
+from contextlib import redirect_stdout
+from io import StringIO
 import sys
 import warnings
 from pathlib import Path
@@ -44,13 +46,14 @@ with TemporaryDirectory() as directory:
     )
     with (
         patch.object(converter, "_load_reference_axes", return_value=(np.arange(3) * 0.1, np.arange(2) * 0.1)),
-        patch.object(converter, "_load_events_for_run", return_value=(None, {})),
+        patch.object(converter, "_load_events_for_run", return_value=None),
         patch.object(cf, "save", side_effect=save_with_unrelated_warning),
         warnings.catch_warnings(record=True) as caught,
     ):
         warnings.simplefilter("always")
         result = converter._convert_run(plan, metadata=metadata, overwrite=False)
-        assert result["status"] == "converted"
+        assert result is True
+        assert converter._convert_run(plan, metadata=metadata, overwrite=False) is False
         assert [str(w.message) for w in caught] == ["Unrelated save warning"]
         warnings.warn("Coordinate 'time' has non-uniform sampling. Exact timings are saved in the JSON sidecar as VolumeTiming,", UserWarning)
         assert len(caught) == 2
@@ -61,4 +64,58 @@ with TemporaryDirectory() as directory:
     assert image.shape[-1] == len(times)
     assert float(image.header["pixdim"][4]) == 0.0
 
-print("PASS: irregular timings preserved; only the expected save warning is suppressed")
+    with h5py.File(source, "a") as h5:
+        del h5["data"]
+        h5["data"] = np.arange(30, dtype=np.float32).reshape(5, 2, 3)
+    with (
+        patch.object(converter, "_load_reference_axes", return_value=(np.arange(3) * 0.1, np.arange(2) * 0.1)),
+        patch.object(converter, "_load_events_for_run", return_value=None),
+        warnings.catch_warnings(record=True) as caught,
+    ):
+        warnings.simplefilter("always")
+        assert converter._convert_run(plan, metadata=metadata, overwrite=True) is True
+        assert [str(w.message) for w in caught] == [
+            f"Dropping final frame without a timestamp: {source}"
+        ]
+    assert nib.load(plan.output_nifti).shape[-1] == len(times)
+    np.testing.assert_array_equal(json.loads((root / "test_pwd.json").read_text())["VolumeTiming"], times)
+    try:
+        converter._repair_times(times, n_frames=6)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Unexpected frame mismatch was accepted")
+
+    preview = StringIO()
+    destination = root / "dry-run-output"
+    with (
+        patch.object(converter, "_collect_run_plans", return_value=([plan], {})),
+        patch.object(converter, "_write_bids_tabular_metadata") as write_metadata,
+        patch.object(converter, "_copy_angio_and_derivatives") as copy_derivatives,
+        redirect_stdout(preview),
+    ):
+        summary = converter.convert(src=root, out=destination, dry_run=True)
+        assert summary.planned_runs == 1 and summary.dry_run
+        assert not hasattr(summary, "manifest_path")
+        assert str(plan.output_nifti) in preview.getvalue()
+        assert not destination.exists()
+        write_metadata.assert_not_called()
+        copy_derivatives.assert_not_called()
+
+    with (
+        patch.object(converter, "_collect_run_plans", return_value=([plan, plan], {(plan.subject, plan.date): metadata})),
+        patch.object(converter, "_write_bids_tabular_metadata"),
+        patch.object(converter, "_copy_angio_and_derivatives"),
+        patch.object(converter, "_convert_run", side_effect=[True, False]),
+    ):
+        summary = converter.convert(src=root, out=root / "counts")
+        assert summary.planned_runs == 2
+        assert summary.converted_runs == 1 and summary.skipped_runs == 1
+        assert not (root / "counts/code").exists()
+    with patch.object(converter, "_collect_run_plans", return_value=([], {})):
+        summary = converter.convert(src=root, out=root / "empty")
+        assert summary.planned_runs == summary.converted_runs == summary.skipped_runs == 0
+        assert not (root / "empty").exists()
+    assert not list(root.rglob("conversion_manifest.tsv"))
+
+print("PASS: timing preservation, repair warnings, skip counts, and write-free dry runs")
