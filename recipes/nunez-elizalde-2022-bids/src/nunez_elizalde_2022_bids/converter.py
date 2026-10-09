@@ -449,17 +449,6 @@ def _build_dataset_metadata(out_dir: Path, subjects: list[str]) -> None:
     )
     (out_dir / "README").write_text(readme_text)
 
-    bidsignore_text = (
-        "code/**\n"
-        "sourcedata/**\n"
-        "derivatives/**\n"
-        "sub-*/ses-*/fusi\n"
-        "sub-*/ses-*/fusi/**\n"
-        "sub-*/ses-*/angio\n"
-        "sub-*/ses-*/angio/**\n"
-    )
-    (out_dir / ".bidsignore").write_text(bidsignore_text)
-
     participants_tsv = out_dir / "participants.tsv"
     with participants_tsv.open("w", newline="") as f:
         writer = csv.writer(f, delimiter="\t")
