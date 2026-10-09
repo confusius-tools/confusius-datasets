@@ -236,10 +236,54 @@ def convert(
                     progress.advance(task)
                     continue
 
-                pwd = cf.load(dest)
+                sidecar = dest.with_suffix("") if dest.name.endswith(".nii.gz") else dest
+                sidecar = sidecar.with_suffix(".json")
+                metadata = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+                times = np.asarray(metadata.get("VolumeTiming", []), dtype=float)
+                # GLM maps use event-relative times, not acquisition onsets.
+                event_relative = (
+                    rel.parts[:2] in (
+                        ("derivatives", "glm-speed"),
+                        ("derivatives", "glm-angular-speed"),
+                    )
+                    and times.ndim == 1
+                    and times.size > 1
+                    and times[0] < 0
+                    and np.isfinite(times).all()
+                    and (np.diff(times) > 0).all()
+                )
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=(
+                            r"^fUSI-BIDS validation warning:\n  - Value error, "
+                            r"FrameAcquisitionDuration is REQUIRED when VolumeTiming "
+                            r"is used and SliceTiming is not set\.$"
+                        ),
+                        category=UserWarning,
+                    )
+                    if event_relative:
+                        warnings.filterwarnings(
+                            "ignore",
+                            message=(
+                                r"^fUSI-BIDS validation warning:\n  - VolumeTiming: Value error, "
+                                r"VolumeTiming must be non-negative, finite and strictly increasing\.$"
+                            ),
+                            category=UserWarning,
+                        )
+                    pwd = cf.load(dest)
                 pwd = _transform(pwd)
                 # Source timing jitter is real; retain VolumeTiming rather than round it.
                 with warnings.catch_warnings():
+                    if event_relative:
+                        warnings.filterwarnings(
+                            "ignore",
+                            message=(
+                                r"^fUSI-BIDS validation warning when saving:\n  - "
+                                r"DelayAfterTrigger: Input should be greater than or equal to 0$"
+                            ),
+                            category=UserWarning,
+                        )
                     warnings.filterwarnings(
                         "ignore",
                         message=(

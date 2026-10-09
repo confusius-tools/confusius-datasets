@@ -19,7 +19,15 @@ copy, not the source Zenodo tree:
 
 Irregular source timestamps are preserved in `VolumeTiming`; the NIfTI header's
 `pixdim[4]` is zero when it cannot represent them. The expected save warning for
-this case is suppressed; other warnings remain visible.
+this case is suppressed. The exact load warning for the legacy sidecars' missing
+`FrameAcquisitionDuration` is also suppressed; no acquisition duration is added
+to the copied sidecars to silence validation.
+
+GLM speed/angular-speed maps use event-relative timestamps starting at -2 seconds.
+Their negative-time validation warnings are suppressed only when timestamps are
+finite and strictly increasing. Regular negative-offset timing may be saved as
+`RepetitionTime` plus a negative `DelayAfterTrigger`; these are derivative lag
+coordinates, not BIDS-compliant acquisition onsets. Other warnings remain visible.
 
 ## References
 
