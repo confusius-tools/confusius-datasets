@@ -192,6 +192,20 @@ def _rewrite_references(payload: dict) -> dict:
 
 
 def _copy_metadata(src: Path, dest: Path, rel: Path) -> None:
+    """Normalize legacy scan headers and resolve omitted datatype folders.
+
+    >>> from tempfile import TemporaryDirectory
+    >>> with TemporaryDirectory() as directory:
+    ...     root = Path(directory)
+    ...     (root / "fusi").mkdir()
+    ...     _ = (root / "fusi/sub-x_pose-0_pwd.nii.gz").write_bytes(b"")
+    ...     source = root / "sub-x_scans.tsv"
+    ...     _ = source.write_text("scan_id\\tacq_time\\nsub-x_pose-0_pwd.nii.gz\\t2023-01-01\\nsub-x_pose-0_pwd.nii.gz 2023-01-01T12:00:00\\t\\n")
+    ...     output = root / "out/sub-x_scans.tsv"
+    ...     _copy_metadata(source, output, Path(source.name))
+    ...     print([line.split() for line in output.read_text().splitlines()])
+    [['filename', 'acq_time'], ['fusi/sub-x_chunk-0_pwd.nii.gz', '2023-01-01'], ['fusi/sub-x_chunk-0_pwd.nii.gz', '2023-01-01T12:00:00']]
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
     if rel.parts[0] in ("sourcedata", "code"):
         shutil.copy2(src, dest)
@@ -199,9 +213,29 @@ def _copy_metadata(src: Path, dest: Path, rel: Path) -> None:
     if rel.name.endswith("_scans.tsv"):
         with src.open(newline="") as source:
             rows = list(csv.reader(source, delimiter="\t"))
-        filename_column = rows[0].index("filename")
+        filename_column = rows[0].index("filename" if "filename" in rows[0] else "scan_id")
+        legacy_header = rows[0][filename_column] == "scan_id"
+        rows[0][filename_column] = "filename"
         for row in rows[1:]:
-            row[filename_column] = _dest_rel(Path(row[filename_column])).as_posix()
+            if (legacy_header and rows[0] == ["filename", "acq_time"]
+                    and len(row) in {1, 2} and (len(row) == 1 or not row[1])):
+                # Some source rows put the timestamp in the filename cell.
+                match = re.fullmatch(
+                    r"(\S+\.nii(?:\.gz)?) (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", row[0]
+                )
+                if match:
+                    row[:] = match.groups()
+            reference = Path(row[filename_column])
+            if legacy_header and len(reference.parts) == 1:
+                matches = [path for path in src.parent.rglob(reference.name) if path.is_file()]
+                if not matches:
+                    # shortcut: retain sidecar-only scan references; reconcile missing images before publication.
+                    stem = reference.with_suffix("") if reference.suffix == ".gz" else reference
+                    matches = [path for path in src.parent.rglob(stem.with_suffix(".json").name) if path.is_file()]
+                if len(matches) != 1:
+                    raise ValueError(f"Expected one scan or sidecar matching {reference} in {src.parent}, found {len(matches)}")
+                reference = matches[0].parent.relative_to(src.parent) / reference.name
+            row[filename_column] = _dest_rel(reference).as_posix()
         with dest.open("w", newline="") as output:
             csv.writer(output, delimiter="\t", lineterminator="\n").writerows(rows)
         shutil.copystat(src, dest)

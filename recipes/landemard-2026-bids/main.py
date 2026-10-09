@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import re
 import shutil
 import tomllib
 from pathlib import Path
@@ -41,6 +42,17 @@ def _rewrite_references(payload: dict) -> dict:
 
 
 def update_susi(root: Path) -> None:
+    """Update paths and repair the two root sidecars' trailing object comma.
+
+    >>> from tempfile import TemporaryDirectory
+    >>> with TemporaryDirectory() as directory:
+    ...     root = Path(directory)
+    ...     sidecar = root / "dataset_description.json"
+    ...     _ = sidecar.write_text('{"Name": "data",}')
+    ...     update_susi(root)
+    ...     print(json.loads(sidecar.read_text()))
+    {'Name': 'data'}
+    """
     folders = [p for p in root.rglob("angio") if p.is_dir()
                and p.parent.name.startswith(("sub-", "ses-"))
                and not {"sourcedata", "code"}.intersection(p.relative_to(root).parts)]
@@ -66,9 +78,13 @@ def update_susi(root: Path) -> None:
     for sidecar in root.rglob("*.json"):
         if {"sourcedata", "code"}.intersection(sidecar.relative_to(root).parts):
             continue
-        text = sidecar.read_text()
+        original = sidecar.read_text()
+        text = original
+        if sidecar.parent == root and sidecar.name in {"dataset_description.json", "participants.json"}:
+            # The original root metadata has a trailing comma before the final brace.
+            text = re.sub(r",(\s*}\s*)$", r"\1", text)
         payload = json.loads(text, object_hook=_rewrite_references)
-        if payload != json.loads(text):
+        if text != original or payload != json.loads(text):
             sidecar.write_text(json.dumps(payload, indent=2) + "\n")
 
 
