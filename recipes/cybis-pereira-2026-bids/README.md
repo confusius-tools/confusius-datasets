@@ -39,6 +39,10 @@ All NIfTI files are written in [ConfUSIus](https://confusius.tools) convention
 
 ## Usage
 
+Without `--out`, the converter writes to
+`<repository>/publish/datasets/cybis-pereira-2026-bids/<version>/`, using this recipe's
+`pyproject.toml` version (initially `1.0.0`). `--out` overrides that location.
+
 Re-export the unzipped Zenodo tree:
 
 ```bash

@@ -15,12 +15,14 @@ just khallaf-2026
 Or from this recipe directory:
 
 ```bash
-uv run --locked main.py --data-dir /path/to/staging
+uv run --locked main.py --out /path/to/release --data-dir /path/to/cache
 ```
 
-The default output is `<repository>/work/khallaf-2026-bids/`. `--data-dir` selects
-its parent directory. Use a fresh output folder; existing datasets are never
-overwritten.
+The default output is `<repository>/publish/datasets/khallaf-2026-bids/<version>/`,
+where `<version>` comes from this recipe's `pyproject.toml` (initially `1.0.0`).
+`--out` overrides it. `--data-dir` now selects only the download cache (default:
+`<repository>/work/`), not the output parent. Use a fresh output folder; existing
+datasets are never overwritten.
 
 `curl` retries and resumes interrupted downloads. Python's standard library
 extracts the ZIP into a temporary directory, checks ZIP member CRCs during

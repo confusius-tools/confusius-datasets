@@ -30,9 +30,16 @@ just khallaf-2026                             # Download from Edmond.
 just template-huang-2025                      # Export a bundled template.
 ```
 
-Each dataset has a named just recipe and stages its output in `work/<dataset-id>/`
-by default. See the linked READMEs for source inputs. Landemard only copies an
-existing BIDS tree; templates use bundled inputs.
+Each recipe writes directly to its versioned release directory:
+
+- Recordings: `publish/datasets/<recipe-directory-name>/<version>/`
+- Templates: `publish/templates/<recipe-directory-name>/<version>/`
+
+The version comes from its own `pyproject.toml` (initially `1.0.0`). This default
+lives in the Python scripts, so direct runs use the same location regardless of
+working directory. Recording converters and staging scripts accept `--out` to
+override it. See the linked READMEs for source inputs. Landemard copies an existing
+BIDS tree into a fresh destination; templates use bundled inputs.
 
 `uv run` creates and syncs each environment automatically; no separate `uv sync`
 is needed. Recipe `.python-version` files select Python 3.13. `--locked` prevents
@@ -41,22 +48,22 @@ You can also run commands directly inside a recipe directory, e.g.
 `uv run --locked pereira-convert --src /path/to/source --out /path/to/output`.
 Keep original recordings and credentials out of Git.
 
-## 2. Aggregate releases
+## 2. Validate releases
 
-From the repository root, place completed outputs under
-`publish/data/<recipe-directory-name>/<version>/`. For example:
-
-```bash
-mkdir -p publish/data/pereira-2025-bids/1.0.0
-cp -a work/pereira-2025-bids/. publish/data/pereira-2025-bids/1.0.0/
-```
+No aggregation copy is needed: recipes already write to their versioned release
+directories. Bump a recipe's project version and update its lockfile before
+preparing a new release. Existing `work/` and old `publish/data/` outputs are not
+migrated automatically; move or remove old outputs before syncing `publish/` to S3.
+Khallaf keeps its download archive in `work/`, separate from release data.
 
 `work/` and `publish/` are gitignored. Preserve each dataset's layout, license,
 attribution, and source provenance. Exclude download-cache indexes and partial
 files. Validate the complete release and add `release.json` plus a
 `dataset_index.json` containing relative paths, sizes, and SHA-256 hashes.
 **Shared release finalization is not yet implemented; do not publish unvalidated
-outputs.** Published versions are immutable; corrections get a new version.
+outputs.** Do not upload while recipes are running. Published versions are
+immutable; corrections get a new version. Converters may skip existing files, so
+do not rerun into an already published version.
 
 ## 3. Upload to S3
 

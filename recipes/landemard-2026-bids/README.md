@@ -18,7 +18,18 @@ built mapping each BIDS-relative path to its OSF file id, size, and md5.
 
 ## Usage
 
-Upload the local BIDS tree to OSF and (re)build `dataset_index.json`:
+Stage an existing BIDS tree without conversion (from the repository root):
+
+```bash
+just landemard-2026 /path/to/landemard_2026_dataset
+```
+
+Or from this recipe directory: `uv run --locked main.py /path/to/source`.
+The default destination is `<repository>/publish/datasets/landemard-2026-bids/<version>/`,
+using the version from `pyproject.toml` (initially `1.0.0`). `--out` overrides it;
+existing destinations are rejected. See the root README for S3 publication.
+
+Legacy OSF upload commands remain available:
 
 ```bash
 export OSF_TOKEN=...

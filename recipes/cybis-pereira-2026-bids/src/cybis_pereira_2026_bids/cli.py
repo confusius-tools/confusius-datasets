@@ -6,6 +6,7 @@ import argparse
 import logging
 import os
 import sys
+import tomllib
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,6 +18,10 @@ from .convert import convert as _convert
 console = Console()
 
 DEFAULT_BIDS_DIR = Path.home() / "work" / "DATA" / "speed_paper_dataset"
+RECIPE = Path(__file__).resolve().parents[2]
+with (RECIPE / "pyproject.toml").open("rb") as source:
+    VERSION = tomllib.load(source)["project"]["version"]
+DEFAULT_OUT = RECIPE.parents[1] / "publish" / "datasets" / RECIPE.name / VERSION
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -126,8 +131,8 @@ def _build_convert_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--out",
         type=Path,
-        required=True,
-        help="Target BIDS root (same relative paths as --src)",
+        default=DEFAULT_OUT,
+        help=f"Target BIDS root (default: {DEFAULT_OUT}; same relative paths as --src)",
     )
     p.add_argument(
         "--overwrite",

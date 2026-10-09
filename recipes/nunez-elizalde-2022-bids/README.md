@@ -30,6 +30,10 @@ stacking, `y` depth, `x` lateral).
 
 ## Usage
 
+Without `--out`, the converter writes to
+`<repository>/publish/datasets/nunez-elizalde-2022-bids/<version>/`, using this recipe's
+`pyproject.toml` version (initially `1.0.0`). `--out` overrides that location.
+
 ```bash
 uv run nunez-convert --src /path/to/Subjects --out /path/to/output_bids --dry-run
 uv run nunez-convert --src /path/to/Subjects --out /path/to/output_bids

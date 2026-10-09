@@ -30,11 +30,17 @@ atlas = cf.atlas.Atlas.from_brainglobe("allen_mouse_50um")
 template = template.rename({"x": "y", "y": "z", "z": "x"}).transpose("z", "y", "x").assign_coords(atlas.reference.coords)
 ```
 
+The bundled NIfTI has no orientation transform in its header. The exporter
+suppresses that specific warning for this input because it explicitly assigns the
+Allen grid after reordering axes; other warnings remain visible.
+
 ## Output
 
 Running the export writes:
 
-- `outputs/huang-2025-space-allen50_desc-vascular.nii.gz`
+- `<repository>/publish/templates/huang-2025-template/<version>/huang-2025-space-allen50_desc-vascular.nii.gz`
+
+`<version>` is read from this recipe's `pyproject.toml` (initially `1.0.0`).
 
 ## Usage
 
@@ -50,7 +56,7 @@ Use it later with ConfUSIus:
 import confusius as cf
 from confusius.atlas.atlas import Atlas
 
-template = cf.load("outputs/huang-2025-space-allen50_desc-vascular.nii.gz")
+template = cf.load("../../publish/templates/huang-2025-template/1.0.0/huang-2025-space-allen50_desc-vascular.nii.gz")
 atlas = Atlas.from_brainglobe("allen_mouse_50um")
 ```
 

@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 
 import confusius as cf
@@ -5,11 +6,13 @@ import numpy as np
 import SimpleITK as sitk
 import xarray as xr
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent
 INPUTS_ROOT = ROOT / "inputs"
 PUBLISHED_PARAMS_ROOT = INPUTS_ROOT / "published_params"
 REGISTRATION_ROOT = INPUTS_ROOT / "registration"
-OUTPUTS_ROOT = ROOT / "outputs"
+with (ROOT / "pyproject.toml").open("rb") as source:
+    VERSION = tomllib.load(source)["project"]["version"]
+OUTPUTS_ROOT = ROOT.parents[1] / "publish" / "templates" / ROOT.name / VERSION
 
 FUSI_PATH = (
     PUBLISHED_PARAMS_ROOT

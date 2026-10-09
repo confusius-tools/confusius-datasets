@@ -51,6 +51,10 @@ All NIfTI files are written in ConfUSIus convention (`[time]`, `z` stacking,
 
 ## Usage
 
+Without `--out`, the converter writes to
+`<repository>/publish/datasets/pepe-mariani-2026-bids/<version>/`, using this recipe's
+`pyproject.toml` version (initially `1.0.0`). `--out` overrides that location.
+
 Re-export the source tree:
 
 ```bash

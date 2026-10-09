@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,10 @@ from rich.console import Console
 from .converter import convert
 
 CONSOLE = Console()
+RECIPE = Path(__file__).resolve().parents[2]
+with (RECIPE / "pyproject.toml").open("rb") as source:
+    VERSION = tomllib.load(source)["project"]["version"]
+DEFAULT_OUT = RECIPE.parents[1] / "publish" / "datasets" / RECIPE.name / VERSION
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,8 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out",
         type=Path,
-        required=True,
-        help="Output BIDS root directory.",
+        default=DEFAULT_OUT,
+        help=f"Output BIDS root directory (default: {DEFAULT_OUT}).",
     )
     parser.add_argument(
         "--subjects",

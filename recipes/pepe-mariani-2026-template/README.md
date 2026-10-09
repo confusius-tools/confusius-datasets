@@ -36,7 +36,9 @@ Notes:
 
 Running the export writes:
 
-- `outputs/pepe-mariani-2026-fusi-template.nii.gz`
+- `<repository>/publish/templates/pepe-mariani-2026-template/<version>/pepe-mariani-2026-fusi-template.nii.gz`
+
+`<version>` is read from this recipe's `pyproject.toml` (initially `1.0.0`).
 
 ## Usage
 
@@ -53,7 +55,7 @@ import confusius as cf
 from confusius.atlas.atlas import Atlas
 
 template = cf.load(
-    "outputs/pepe-mariani-2026-fusi-template.nii.gz"
+    "../../publish/templates/pepe-mariani-2026-template/1.0.0/pepe-mariani-2026-fusi-template.nii.gz"
 )
 atlas = Atlas.from_brainglobe("allen_mouse_100um")
 resampled_atlas = atlas.resample_like(

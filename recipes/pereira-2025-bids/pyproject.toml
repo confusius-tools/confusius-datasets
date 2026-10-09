@@ -1,6 +1,6 @@
 [project]
 name = "pereira-2025-bids"
-version = "0.1.0"
+version = "1.0.0"
 description = "Convert Pereira et al. fUSI recordings to fUSI-BIDS and upload to OSF"
 requires-python = ">=3.13"
 dependencies = [

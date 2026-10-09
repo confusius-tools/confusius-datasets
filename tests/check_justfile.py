@@ -30,106 +30,38 @@ with TemporaryDirectory() as directory:
         "PATH": f"{binary}:{os.environ['PATH']}",
         "CHECK_UV_LOG": str(log),
     }
-    source = root / "source with 'quotes' and spaces"
-    source.mkdir()
-    (source / "participants.tsv").write_text("participant_id\nsub-test\n")
-    converters = {
+    source = "source with 'quotes' and spaces"
+    expected = []
+    for name, command in {
         "nunez-elizalde-2022": "nunez-convert",
         "cybis-pereira-2026": "cybis-convert",
         "pereira-2025": "pereira-convert",
         "pepe-mariani-2026": "pepe-mariani-convert",
-    }
-    expected = []
-    for name, command in converters.items():
+    }.items():
         subprocess.run(
-            ["just", name, str(source), "--dry-run"],
-            cwd=root,
-            env=environment,
-            check=True,
+            ["just", name, source, "--dry-run", "--out", "custom output"],
+            cwd=root, env=environment, check=True,
         )
-        expected.append(
-            [
-                "run",
-                "--locked",
-                "--project",
-                f"recipes/{name}-bids",
-                command,
-                "--src",
-                str(source),
-                "--out",
-                f"work/{name}-bids",
-                "--dry-run",
-            ]
-        )
-    subprocess.run(
-        ["just", "khallaf-2026", "--data-dir", str(source)],
-        cwd=root,
-        env=environment,
-        check=True,
-    )
-    expected.append(
-        [
-            "run",
-            "--locked",
-            "--project",
-            "recipes/khallaf-2026-bids",
-            "python",
-            "recipes/khallaf-2026-bids/main.py",
-            "--data-dir",
-            str(source),
-        ]
-    )
-    for name, filename in (
-        ("pepe-mariani-2026", "pepe-mariani-2026-fusi-template.nii.gz"),
-        ("huang-2025", "huang-2025-space-allen50_desc-vascular.nii.gz"),
+        expected.append([
+            "run", "--locked", "--project", f"recipes/{name}-bids", command,
+            "--src", source, "--dry-run", "--out", "custom output",
+        ])
+    for runner, recipe, args in (
+        ("landemard-2026", "landemard-2026-bids", [source]),
+        ("khallaf-2026", "khallaf-2026-bids", ["--data-dir", source]),
+        ("template-pepe-mariani-2026", "pepe-mariani-2026-template", []),
+        ("template-huang-2025", "huang-2025-template", []),
     ):
-        outputs = root / "recipes" / f"{name}-template" / "outputs"
-        outputs.mkdir(parents=True)
-        (outputs / filename).write_bytes(b"reference template")
-        subprocess.run(
-            ["just", f"template-{name}"], cwd=root, env=environment, check=True
-        )
-        expected.append(
-            [
-                "run",
-                "--locked",
-                "--project",
-                f"recipes/{name}-template",
-                "python",
-                f"recipes/{name}-template/main.py",
-            ]
-        )
-        assert (
-            root / "work" / f"{name}-template" / filename
-        ).read_bytes() == b"reference template"
+        subprocess.run(["just", runner, *args], cwd=root, env=environment, check=True)
+        expected.append([
+            "run", "--locked", "--project", f"recipes/{recipe}",
+            "python", f"recipes/{recipe}/main.py", *args,
+        ])
     assert [json.loads(line) for line in log.read_text().splitlines()] == expected
-
-    subprocess.run(
-        ["just", "landemard-2026", str(source)], cwd=root, env=environment, check=True
-    )
-    assert (root / "work/landemard-2026-bids/participants.tsv").read_bytes() == (
-        source / "participants.tsv"
-    ).read_bytes()
-    invalid = subprocess.run(
-        ["just", "landemard-2026", str(root / "missing")],
-        cwd=root,
-        env=environment,
-        capture_output=True,
-        check=False,
-    )
-    assert invalid.returncode != 0
-
-    shutil.rmtree(root / "work/huang-2025-template")
     failed = subprocess.run(
-        ["just", "template-huang-2025"],
-        cwd=root,
-        env={**environment, "CHECK_UV_FAIL": "1"},
-        capture_output=True,
-        check=False,
+        ["just", "template-huang-2025"], cwd=root,
+        env={**environment, "CHECK_UV_FAIL": "1"}, capture_output=True,
     )
     assert failed.returncode != 0
-    assert not (root / "work/huang-2025-template").exists()
 
-print(
-    "PASS: eight just runners, quoted paths, forwarded flags, staging, and failure propagation"
-)
+print("PASS: eight just runners, quoted paths, forwarded flags, and failure propagation")
