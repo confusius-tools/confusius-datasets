@@ -40,6 +40,10 @@ template-huang-2025:
 manifest release:
     uv run --no-project --python 3.13 python scripts/releases.py manifest "$1"
 
+# Preview publication; pass --upload to upload, verify, and promote a release.
+publish release *args:
+    uv run --no-project --python 3.13 python scripts/releases.py publish "$@"
+
 # Mark a release latest only after its upload has been verified.
 latest release:
     uv run --no-project --python 3.13 python scripts/releases.py latest "$1"

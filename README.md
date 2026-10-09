@@ -55,8 +55,9 @@ export RELEASE=publish/datasets/pereira-2025-bids/1.0.0
 just manifest "$RELEASE"
 ```
 
-This writes `manifest.json`, mapping relative paths to byte sizes and SHA-256
-hashes. The shared [release script](scripts/releases.py) streams file contents,
+This writes `<release-directory>/manifest.json`, mapping relative paths to byte
+sizes and SHA-256 hashes. Each dataset/template version has its own manifest;
+pass the version directory, not its parent recipe directory. The shared [release script](scripts/releases.py) streams file contents,
 excludes the manifest itself, rejects empty releases, symlinks, obvious temporary
 or credential files, and old conversion logs, then writes the manifest atomically.
 For dataset releases it also adds `manifest.json` to `.bidsignore`, preserving
@@ -74,40 +75,50 @@ lockfile for a new release; never rerun into an already published version.
 
 ## 3. Upload to S3
 
-Install the [AWS CLI](https://aws.amazon.com/cli/) and configure an upload profile
-for `s3://confusius-datasets` in US West (Oregon), `us-west-2`. Upload one prepared
-release at a time, preserving its path under `publish/`. Review the dry run:
+Install the [AWS CLI](https://aws.amazon.com/cli/) and authenticate as a publisher
+with upload access to `s3://confusius-datasets`. For a console-enabled IAM publisher
+with the `SignInLocalDevelopmentAccess` policy, use a local AWS CLI profile of
+your choice (the profile name is not an IAM username):
 
 ```bash
-export BUCKET=s3://confusius-datasets
-export AWS_REGION=us-west-2
-export REMOTE="$BUCKET/${RELEASE#publish/}"
-aws s3 sync "$RELEASE/" "$REMOTE/" --exclude manifest.json --dryrun
+export AWS_PROFILE=your-publisher-profile
+aws login --profile "$AWS_PROFILE" --region us-west-2
 ```
 
-Repeat without `--dryrun` after review. Verify uploaded contents against the
-manifest and check anonymous access, then upload the manifest:
+The shared publishing command targets this bucket in US West (Oregon), `us-west-2`,
+and preserves the release's path under `publish/`. Review the preview, then upload:
 
 ```bash
-aws s3 cp "$RELEASE/manifest.json" "$REMOTE/manifest.json"
+just publish "$RELEASE"             # Preview only; no remote or local writes.
+just publish "$RELEASE" --upload    # Upload, verify, and mark this version latest.
 ```
 
-After the manifest upload is verified, explicitly mark this version as latest.
-If a catalog already exists in S3, first download it to preserve other entries:
-`aws s3 cp "$BUCKET/last_versions.conf" publish/last_versions.conf`.
+The command checks that local files match their manifest before contacting S3.
+It uploads release files, downloads them anonymously into a temporary directory,
+and checks the exact inventory, sizes, and SHA-256 hashes. Allow enough temporary
+disk space for another copy of the release; verification downloads every file.
+Only after verification does it upload and anonymously verify the manifest.
 
-```bash
-just latest "$RELEASE"
-aws s3 cp publish/last_versions.conf "$BUCKET/last_versions.conf"
-```
+Finally it fetches the current remote `last_versions.conf`, preserves its other
+entries, updates this recipe's version, and uploads and anonymously verifies the
+catalog last. The remote catalog is authoritative: if none exists, publication
+starts a new catalog rather than using stale local entries. Authentication,
+permission, and network errors stop publication; they are not treated as a missing
+catalog.
+
+Published release files are never overwritten. If a remote manifest exists and
+differs from the local one, publication stops. If it matches, `--upload` only
+verifies the existing release and promotes its catalog entry. This also lets you
+retry after a catalog update fails. Incomplete uploads without a manifest can be
+resumed; unexpected remote files fail verification and are not silently deleted.
 
 `last_versions.conf` has separate `[datasets]` and `[templates]` sections mapping
-recipe names to versions. The update command requires a manifest and preserves
-other catalog entries; it does not check S3 or automatically promote local folders.
-Use one publisher at a time to avoid overwriting another publisher's catalog changes.
+recipe names to versions. Use one publisher at a time and do not modify local
+release files during publication. Uploading to S3 is not atomic; interrupted
+uploads can leave files or a manifest present without a catalog entry.
 
-Do not use `--delete` or wrap releases in ZIP/TAR archives. Uploading to S3 is not
-atomic; publish the catalog last, only after release files and the manifest are verified.
+`just latest "$RELEASE"` remains available for local-only catalog edits; it does
+not upload or verify S3. Do not use `--delete` or wrap releases in ZIP/TAR archives.
 
 ## Licensing
 
