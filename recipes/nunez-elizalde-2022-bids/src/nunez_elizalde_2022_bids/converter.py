@@ -1108,12 +1108,7 @@ def _convert_run(
         times,
         n_frames=data.shape[0],
     )
-    if n_target_frames < data.shape[0]:
-        warnings.warn(
-            f"Dropping final frame without a timestamp: {plan.source_hdf}",
-            UserWarning,
-            stacklevel=2,
-        )
+    # Source runs can contain one untimed, zero-padding frame.
     data = data[:n_target_frames, :, :]
 
     x_reference, depth_reference = _load_reference_axes(plan.reference_nifti)
