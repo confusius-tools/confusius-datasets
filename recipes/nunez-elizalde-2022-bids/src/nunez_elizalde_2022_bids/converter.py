@@ -51,7 +51,7 @@ class SessionMetadata:
     plane_wave_angles_deg: list[float] | None
     transmit_frequency_hz: float | None
     compound_sampling_frequency_hz: float | None
-    probe_voltage_v: float | None
+    transmit_voltage_v: float | None
     depth_mm: tuple[float, float] | None
 
 
@@ -204,7 +204,7 @@ def _load_session_metadata(session_dir: Path) -> SessionMetadata:
     compound_sampling_frequency_hz = (
         float(hq["Frate"]) if "Frate" in hq and hq["Frate"] else None
     )
-    probe_voltage_v = (
+    transmit_voltage_v = (
         float(par_seq["HVset"])
         if "HVset" in par_seq and par_seq["HVset"] is not None
         else None
@@ -225,7 +225,7 @@ def _load_session_metadata(session_dir: Path) -> SessionMetadata:
         plane_wave_angles_deg=plane_wave_angles_deg,
         transmit_frequency_hz=transmit_frequency_hz,
         compound_sampling_frequency_hz=compound_sampling_frequency_hz,
-        probe_voltage_v=probe_voltage_v,
+        transmit_voltage_v=transmit_voltage_v,
         depth_mm=depth_mm,
     )
 
@@ -467,6 +467,8 @@ def _update_bids_sidecar(nifti: Path, *, windows_in_seconds: bool = False) -> No
     payload = json.loads(sidecar.read_text())
     for old, new in {
         "ProbeCentralFrequency": "ProbeCenterFrequency",
+        "probe_center_frequency": "ProbeCenterFrequency",
+        "transmit_voltage": "TransmitVoltage",
         "UltrasoundTransmitFrequency": "TransmitFrequency",
         "UltrasoundPulseRepetitionFrequency": "PulseRepetitionFrequency",
         "ProbeVoltage": "TransmitVoltage",
@@ -517,7 +519,7 @@ def _build_angio_sidecar(
         "ProbeManufacturer": STATIC_METADATA["probe_manufacturer"],
         "ProbeType": STATIC_METADATA["probe_type"],
         "ProbeModel": STATIC_METADATA["probe_model"],
-        "ProbeCenterFrequency": STATIC_METADATA["probe_central_frequency"],
+        "ProbeCenterFrequency": STATIC_METADATA["probe_center_frequency"],
         "ProbeNumberOfElements": STATIC_METADATA["probe_number_of_elements"],
         "ProbePitch": STATIC_METADATA["probe_pitch"],
         "ProbeFocalWidth": STATIC_METADATA["probe_focal_width"],
@@ -533,8 +535,8 @@ def _build_angio_sidecar(
         sidecar["CompoundSamplingFrequency"] = metadata.compound_sampling_frequency_hz
     if metadata.plane_wave_angles_deg is not None:
         sidecar["PlaneWaveAngles"] = metadata.plane_wave_angles_deg
-    if metadata.probe_voltage_v is not None:
-        sidecar["TransmitVoltage"] = metadata.probe_voltage_v
+    if metadata.transmit_voltage_v is not None:
+        sidecar["TransmitVoltage"] = metadata.transmit_voltage_v
     if metadata.ystack_positions_mm.size > 0:
         sidecar["YStackPositions"] = [
             float(v) for v in metadata.ystack_positions_mm.tolist()
@@ -1198,8 +1200,8 @@ def _convert_run(
         attrs["compound_sampling_frequency"] = metadata.compound_sampling_frequency_hz
     if metadata.plane_wave_angles_deg is not None:
         attrs["plane_wave_angles"] = metadata.plane_wave_angles_deg
-    if metadata.probe_voltage_v is not None:
-        attrs["probe_voltage"] = metadata.probe_voltage_v
+    if metadata.transmit_voltage_v is not None:
+        attrs["transmit_voltage"] = metadata.transmit_voltage_v
 
     da = xr.DataArray(
         data[:, np.newaxis, :, :],

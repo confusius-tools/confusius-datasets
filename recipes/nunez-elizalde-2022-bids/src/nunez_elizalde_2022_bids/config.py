@@ -20,7 +20,7 @@ STATIC_METADATA: dict[str, Any] = {
     "probe_manufacturer": "Vermon",
     "probe_type": "linear",
     "probe_model": "L22-XTech",
-    "probe_central_frequency": 15e6,
+    "probe_center_frequency": 15e6,
     "probe_number_of_elements": 128,
     "probe_pitch": 0.1,
     "probe_focal_width": 0.4,
