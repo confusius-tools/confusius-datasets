@@ -1,10 +1,13 @@
 [project]
-name = "huang-2025-template"
+name = "brunner-grillet-2021-template"
 version = "1.0.0"
-description = "Export OfUSA vascular template to ConfUSIus Allen-50um coordinates"
+description = "Download and export the Brunner, Grillet 2021 vascular template to ConfUSIus Allen-50um coordinates"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "confusius>=0.8.0.dev0",
+    "numpy",
+    "pooch",
+    "scipy",
 ]
 
 [tool.uv.sources]

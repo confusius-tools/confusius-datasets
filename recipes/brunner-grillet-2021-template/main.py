@@ -1,38 +1,41 @@
 from __future__ import annotations
 
 import tomllib
-import warnings
 from pathlib import Path
 
 import confusius as cf
 import numpy as np
+import pooch
+from scipy.io import loadmat
 
 ROOT = Path(__file__).resolve().parent
 with (ROOT / "pyproject.toml").open("rb") as source:
     VERSION = tomllib.load(source)["project"]["version"]
 OUTPUTS = ROOT.parents[1] / "publish" / "templates" / ROOT.name / VERSION
+CACHE = ROOT.parents[1] / "work" / ROOT.name
 
-SOURCE_VASCULAR = ROOT / "inputs" / "OFUSA_Atlas_Mouse_Vascular.nii"
+SOURCE_URL = "https://zenodo.org/records/4905862/files/allen_brain_atlas.mat?download=1"
+SOURCE_HASH = "md5:ea1d5f60589350487a5aa574b6c954f0"
+OUTPUT_VASCULAR = OUTPUTS / "brunner-grillet-2021-fusi-template.nii.gz"
 
-OUTPUT_VASCULAR = OUTPUTS / "huang-2025-space-allen50_desc-vascular.nii.gz"
 
+def export_vascular(source_path: Path | None = None) -> Path:
+    if source_path is None:
+        source_path = Path(pooch.retrieve(
+            url=SOURCE_URL,
+            known_hash=SOURCE_HASH,
+            fname="allen_brain_atlas.mat",
+            path=CACHE,
+        ))
+    source = loadmat(source_path, simplify_cells=True)["atlas"]
+    if source["Direction"] != "DV.AP.LR":
+        raise ValueError(f"Unexpected atlas direction: {source['Direction']!r}")
+    if not np.array_equal(source["VoxelSize"], [50, 50, 50]):
+        raise ValueError(f"Unexpected atlas voxel size: {source['VoxelSize']!r}")
 
-def export_vascular(source_path: Path = SOURCE_VASCULAR) -> Path:
+    # The MAT has no world affine; reorder DV/AP/LR to the Allen AP/DV/LR grid.
+    data = source["Vascular"].transpose(1, 0, 2)
     atlas = cf.datasets.fetch_brainglobe_atlas("allen_mouse_50um")
-
-    with warnings.catch_warnings():
-        if source_path.resolve() == SOURCE_VASCULAR.resolve():
-            # The bundled input lacks orientation metadata; we assign the Allen grid below.
-            warnings.filterwarnings(
-                "ignore",
-                message=r"Both sform_code and qform_code are 0 in the NIfTI header\.",
-                category=UserWarning,
-            )
-        template = cf.load(source_path)
-    if "time" in template.dims:
-        template = template.squeeze("time", drop=True)
-
-    data = np.asarray(template).transpose(1, 2, 0)
     reference = atlas["reference"]
     if data.shape != reference.shape:
         raise ValueError(f"Template shape {data.shape} differs from Allen grid {reference.shape}")

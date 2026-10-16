@@ -6,9 +6,9 @@ Amazon S3.
 
 ## Recipes and sources
 
-Download and unpack the original inputs before running a recipe. Khallaf downloads
-automatically; both templates have their inputs bundled. Recipe READMEs provide
-input details and provenance.
+Download and unpack the original inputs before running a recipe. Khallaf and the
+Brunner, Grillet template download automatically; the Pepe Mariani template has its inputs
+bundled. Recipe READMEs provide input details and provenance.
 
 | Recipe | Original source / download | Data license |
 | --- | --- | --- |
@@ -18,8 +18,8 @@ input details and provenance.
 | [Cybis Pereira 2026](recipes/cybis-pereira-2026-bids/) | [Zenodo](https://zenodo.org/records/15476373) · [ZIP](https://zenodo.org/api/records/15476373/files/dataset.zip/content) | CC BY 4.0 |
 | [Pereira 2025](recipes/pereira-2025-bids/) | [Zenodo](https://zenodo.org/records/15194839) · [ZIP](https://zenodo.org/api/records/15194839/files/rawdata.zip/content) | CC BY 4.0 |
 | [Pepe Mariani 2026 recordings](recipes/pepe-mariani-2026-bids/) | [Zenodo](https://zenodo.org/records/20070510) · [ZIP](https://zenodo.org/api/records/20070510/files/2026-02-03_PepeMariani_fUSI-anaesthetised.zip/content) | CC BY 4.0 |
-| [Pepe Mariani 2026 template](recipes/pepe-mariani-2026-template/) | [Zenodo](https://zenodo.org/records/18486493) (inputs included) | CC BY 4.0 |
-| [Huang 2025 template](recipes/huang-2025-template/) | [OfUSA software](https://github.com/YunAnGitHub/OpenfUS_Analyzer_OfUSA) (input included) | CC BY-NC-SA 4.0 |
+| [Pepe Mariani 2026 template](recipes/pepe-mariani-2026-template/) | [Zenodo](https://zenodo.org/records/18486493) | CC BY 4.0 |
+| [Brunner, Grillet 2021 template](recipes/brunner-grillet-2021-template/) | [Zenodo](https://zenodo.org/records/4905862) | CC BY 4.0 |
 
 Landemard's complete download contains subject ZIPs. Unpack those into one BIDS root
 alongside the root metadata, then pass that directory to `just landemard-2026`.
@@ -37,7 +37,7 @@ just                                            # List recipes.
 just pereira-2025 /path/to/source               # Prepare recordings.
 just pereira-2025 /path/to/source --dry-run     # Preview conversion.
 just khallaf-2026                               # Download and update datatype paths.
-just template-huang-2025                        # Export a bundled template.
+just template-brunner-grillet-2021              # Download and export the vascular template.
 ```
 
 Outputs go to:

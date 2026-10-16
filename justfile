@@ -32,9 +32,9 @@ pepe-mariani-2026 src *args:
 template-pepe-mariani-2026:
     uv run --locked --project recipes/pepe-mariani-2026-template python recipes/pepe-mariani-2026-template/main.py
 
-# Export the Huang template from its bundled input.
-template-huang-2025:
-    uv run --locked --project recipes/huang-2025-template python recipes/huang-2025-template/main.py
+# Download and export the Brunner, Grillet vascular template from Zenodo.
+template-brunner-grillet-2021:
+    uv run --locked --project recipes/brunner-grillet-2021-template python recipes/brunner-grillet-2021-template/main.py
 
 # Inventory a completed release and write its SHA-256 manifest.
 manifest release:
