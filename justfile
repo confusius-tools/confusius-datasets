@@ -12,6 +12,10 @@ nunez-elizalde-2022 src *args:
 landemard-2026 src *args:
     uv run --locked --project recipes/landemard-2026-bids python recipes/landemard-2026-bids/main.py "$@"
 
+# Stage the Landemard sample beamformed IQ Zarr store.
+sample-beamformed-iq *args:
+    uv run --locked --project recipes/sample-beamformed-iq python recipes/sample-beamformed-iq/main.py "$@"
+
 # Download Khallaf from Edmond and update legacy datatype paths.
 khallaf-2026 *args:
     uv run --locked --project recipes/khallaf-2026-bids python recipes/khallaf-2026-bids/main.py "$@"

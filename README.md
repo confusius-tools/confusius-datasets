@@ -14,6 +14,7 @@ bundled. Recipe READMEs provide input details and provenance.
 | --- | --- | --- |
 | [Nunez-Elizalde 2022](recipes/nunez-elizalde-2022-bids/) | [Figshare](https://doi.org/10.6084/m9.figshare.19316228) · [ZIP](https://ndownloader.figshare.com/files/34307132) | CC BY 4.0 |
 | [Landemard 2026](recipes/landemard-2026-bids/) | [UCL Figshare](https://doi.org/10.5522/04/31376338) · [Complete ZIP (v3)](https://rdr.ucl.ac.uk/ndownloader/articles/31376338/versions/3) | CC BY-NC 4.0 |
+| [Sample beamformed IQ](recipes/sample-beamformed-iq/) | Sample 2D+t beamformed IQ recording from Landemard 2026 | CC BY-NC 4.0 |
 | [Khallaf 2026](recipes/khallaf-2026-bids/) | [Edmond](https://doi.org/10.17617/3.7QCU1F) · [fUSI ZIP](https://edmond.mpg.de/api/access/datafile/343674) | CC0 1.0 |
 | [Cybis Pereira 2026](recipes/cybis-pereira-2026-bids/) | [Zenodo](https://zenodo.org/records/15476373) · [ZIP](https://zenodo.org/api/records/15476373/files/dataset.zip/content) | CC BY 4.0 |
 | [Pereira 2025](recipes/pereira-2025-bids/) | [Zenodo](https://zenodo.org/records/15194839) · [ZIP](https://zenodo.org/api/records/15194839/files/rawdata.zip/content) | CC BY 4.0 |
@@ -42,7 +43,7 @@ just template-brunner-grillet-2021              # Download and export the vascul
 
 Outputs go to:
 
-- Recordings: `publish/datasets/<recipe-directory-name>/<version>/`
+- Recordings and IQ samples: `publish/datasets/<recipe-directory-name>/<version>/`
 - Templates: `publish/templates/<recipe-directory-name>/<version>/`
 
 The version comes from each recipe's `pyproject.toml`. Recording converters and

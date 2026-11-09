@@ -1,0 +1,7 @@
+[project]
+name = "sample-beamformed-iq"
+version = "1.0.0"
+description = "Stage sample beamformed IQ recordings"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []

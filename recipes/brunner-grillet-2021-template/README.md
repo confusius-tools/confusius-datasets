@@ -68,12 +68,6 @@ import confusius as cf
 template = cf.load("publish/templates/brunner-grillet-2021-template/1.0.0/brunner-grillet-2021-fusi-template.nii.gz")
 ```
 
-Run the offline recipe tests:
-
-```bash
-uv run --locked --project recipes/brunner-grillet-2021-template python -m unittest discover -s recipes/brunner-grillet-2021-template -p 'test_*.py'
-```
-
 ## Licensing and citation
 
 - **Code:** BSD-3-Clause (`LICENSE`).
