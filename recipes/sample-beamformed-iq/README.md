@@ -38,7 +38,7 @@ publisher's additional verification download.
 
 ## Licensing
 
-- **Code license:** BSD-3-Clause (`LICENSE`)
-- **Data license:** CC BY-NC 4.0 (`licenses/DATA_LICENSE.md`)
+- **Code license:** [BSD-3-Clause](https://github.com/confusius-tools/confusius-datasets/blob/main/LICENSE)
+- **Data license:** [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
 
 Cite the original dataset and paper when using or redistributing the recording.

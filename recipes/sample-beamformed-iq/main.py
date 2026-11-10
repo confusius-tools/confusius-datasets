@@ -25,9 +25,7 @@ def stage(src: Path, out: Path) -> None:
         raise ValueError(f"Zarr store contains a symlink: {src}")
     out.mkdir(parents=True, exist_ok=False)
     shutil.copytree(src, out / NAME)
-    for name in ("README.md", "LICENSE"):
-        shutil.copy2(ROOT / name, out / name)
-    shutil.copytree(ROOT / "licenses", out / "licenses")
+    shutil.copy2(ROOT / "DATA_README.md", out / "README.md")
 
 
 if __name__ == "__main__":

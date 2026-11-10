@@ -69,9 +69,9 @@ sizes and SHA-256 hashes. Each dataset/template version has its own manifest;
 pass the version directory, not its parent recipe directory. The shared [release script](scripts/releases.py) streams file contents,
 excludes the manifest itself, rejects empty releases, symlinks, obvious temporary
 or credential files, and old conversion logs, then writes the manifest atomically.
-For dataset releases it also adds `manifest.json` to `.bidsignore`, preserving
+For BIDS dataset releases it also adds `manifest.json` to `.bidsignore`, preserving
 existing rules, and includes the updated `.bidsignore` in the manifest. Templates
-do not need a `.bidsignore`.
+and the non-BIDS IQ sample do not need a `.bidsignore`.
 It does not check scientific correctness or whether recordings are missing.
 
 Keep conversion-specific checks in the recipe tests; review orientation/alignment

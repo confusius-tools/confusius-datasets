@@ -52,7 +52,7 @@ def manifest(release: Path) -> None:
         paths.append(path)
     if not paths or paths == [release / ".bidsignore"]:
         raise ValueError("Release has no data files")
-    if release.parent.parent.name == "datasets":
+    if release.parent.parent.name == "datasets" and release.parent.name != "sample-beamformed-iq":
         bidsignore = release / ".bidsignore"
         if bidsignore.exists():
             rules = bidsignore.read_text(encoding="utf-8")
